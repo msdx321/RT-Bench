@@ -18,7 +18,12 @@
 /// System-call number to open performance counter event.
 #ifdef AARCH64
 #define __NR_perf_event_open 241
+#elif X86_64
+#define __NR_perf_event_open 298
+//#elif X86_64
+//#define __NR_perf_event_open 336
 #endif
+
 /// Core model specific performance counter event IDs
 #ifdef CORTEX_A53
 #define L1_REFERENCES 0x04
@@ -26,14 +31,18 @@
 #define L2_REFERENCES 0x16
 #define L2_REFILLS 0x17
 #define INST_RETIRED 0x08
-
+#elif CORE_I7
+#define L1_REFERENCES (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
+#define L1_REFILLS (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
+#define L2_REFERENCES (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
+#define L2_REFILLS (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
+#define INST_RETIRED PERF_COUNT_HW_INSTRUCTIONS
 #else
 #define L1_REFERENCES 0x0
 #define L1_REFILLS 0x0
 #define L2_REFERENCES 0x0
 #define L2_REFILLS 0x0
 #define INST_RETIRED 0x0
-
 #endif
 
 /// Indicates which thread/process performance counters to follow.
