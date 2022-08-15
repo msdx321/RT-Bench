@@ -141,8 +141,7 @@ static void stop_benchmark(int status, void *arg)
 			perror("Error during output file close");
 		}
 	}
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	if (arg != NULL) {
 		unsigned *memory_profiling_enable = (unsigned *)arg;
 		if (*memory_profiling_enable) {
@@ -161,7 +160,6 @@ static void stop_benchmark(int status, void *arg)
 			}
 		}
 	}
-#endif
 #endif
 	if (deadline_timer != NULL) {
 		elogf(LOG_LEVEL_TRACE, "Deleting deadline timer\n");
@@ -183,13 +181,11 @@ static void stop_benchmark(int status, void *arg)
 	}
 	elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
 	benchmark_teardown(benchmark_param_num, benchmark_params);
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	res = teardown_pmcs();
 	if (res < 0) {
 		perror("Error: performance counters file descriptors could not be closed\n");
 	}
-#endif
 #endif
 }
 
@@ -487,8 +483,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 	// status variables
 	int res;
 
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	// Initialize the performance sampler thread
 	if (exec_opts->memory_profiling_enable) {
 		elogf(LOG_LEVEL_TRACE,
@@ -505,7 +500,6 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		}
 	}
 #endif
-#endif
 	elogf(LOG_LEVEL_TRACE, "Starting setup of execution environment\n");
 	// we initialize the period semaphore to 0, to wait for the period end.
 	res = sem_init(&period_sem, 1, 0);
@@ -513,13 +507,9 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		perror("Error during deadline semaphore initialization");
 		return res;
 	}
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	res = on_exit(stop_benchmark,
 		      (void *)&(exec_opts->memory_profiling_enable));
-#else
-	res = on_exit(stop_benchmark, NULL);
-#endif
 #else
 	res = on_exit(stop_benchmark, NULL);
 #endif
@@ -598,13 +588,11 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		start_memory_watcher(exec_opts->bytes_to_preallocate);
 	}
 
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	res = setup_pmcs();
 	if (res < 0) {
 		return res;
 	}
-#endif
 #endif
 
 	elogf(LOG_LEVEL_TRACE, "Configuring timers...\n");
@@ -650,22 +638,18 @@ int periodic_benchmark(struct execution_options *exec_opts)
 			return res;
 		}
 // we start executing the job
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 		if (exec_opts->memory_profiling_enable) {
 			start_sampling();
 		}
 		job_perf_counters_start = pmcs_get_value();
 #endif
-#endif
 		benchmark_execution(benchmark_param_num, benchmark_params);
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 		job_perf_counters_end = pmcs_get_value();
 		if (exec_opts->memory_profiling_enable) {
 			stop_sampling();
 		}
-#endif
 #endif
 		job_end_timestamp_clocks = get_rdtsc();
 		job_end_timestamp = get_timestamp();

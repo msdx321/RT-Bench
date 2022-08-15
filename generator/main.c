@@ -187,15 +187,13 @@ static char field_to_abbrv_mapping(char *arg)
 		return 'P';
 	else if (!strcmp(arg, "sched-runtime"))
 		return 'T';
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	else if (!strcmp(arg, "memory-profiling-enable"))
 		return 'M';
 	else if (!strcmp(arg, "memory-profiling-core"))
 		return 'C';
 	else if (!strcmp(arg, "memory-profiling-time-bucket"))
 		return 'B';
-#endif
 #endif
 	else if (!strcmp(arg, "log-level"))
 		return 'l';
@@ -400,8 +398,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	case 'P':
 		parsed_args->period = strtoull(arg, NULL, 0);
 		break;
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	case 'M':
 		parsed_args->memory_profiling_enable = strtoul(arg, NULL, 0);
 		break;
@@ -413,7 +410,6 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	case 'B':
 		memory_profiling_time_bucket = strtoul(arg, NULL, 0);
 		break;
-#endif
 #endif
 	default:
 		res = ARGP_ERR_UNKNOWN;
@@ -569,15 +565,13 @@ int main(int argc, char **argv)
 		{ "sched-period", 'P', "ns", 0,
 		  "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least --sched-period has to be specified to set sched_deadline params. If deadline is not specified, deadline is set to period. If runtime is not specified, runtime is set to deadline. NOTE: These parameters are different from --period and --deadline used to control the repetitive execution of the thread. To generate valid execution that are not truncated under hard server reservation, period < sched-period and deadline < sched-deadline." },
 		{ 0, 0, 0, 0, "Reporting options:", 5 },
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 		{ "memory-profiling-enable", 'M', "bool", 0,
 		  "Enables runtime memory profiling. Specify '1' to enable or '0' otherwise." },
 		{ "memory-profiling-core", 'C', "core0, core1,...", 0,
 		  "Core affinity of the runtime memory profiling thread. If not specified, it matches the 'core-affinity' parameter. Warning: 'memory-profiling-enable' must be asserted for this parameter to take effect." },
 		{ "memory-profiling-time-bucket", 'B', "ns", 0,
 		  "Period between measurements performed by the runtime memory profiler. If not specified, time bucket of 10ms is set. Warning: 'memory-profiling-enable' must be asserted for this parameter to take effect." },
-#endif
 #endif
 		{ "log-level", 'l', "log-lvl", 0,
 		  "Log level, can be one of the following:\n1 - Print only errors.\n2 - Print benchmark stats to output file.\n3 - Print benchmark stats to stdout.\n4 - Print also informative messages on stderr.\nDefault is 3." },

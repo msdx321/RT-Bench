@@ -229,13 +229,11 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
 	print_timing(file, period_start_clocks, period_end_clocks,
 		     job_end_clocks, deadline_clocks, period_start, period_end,
 		     job_end, deadline);
-#ifdef AARCH64
-#ifdef CORTEX_A53
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
 	print_performance_counters(file, l1_ref_start, l1_miss_start,
 				   l2_ref_start, l2_miss_start,
 				   inst_retired_start, l1_ref_end, l1_miss_end,
 				   l2_ref_end, l2_miss_end, inst_retired_end);
-#endif
 #endif
 
 #ifdef EXTENDED_REPORT
