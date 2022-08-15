@@ -90,15 +90,16 @@ static int inst_retired_fd;
 
 /**
  * @brief Open a file descriptor for the performance counter specified.
- * @param[in] pmc_type The platform specific ID of the performance counter.
+ * @param[in] pmc_type Specify the event type.
+ * @param[in] pmc_config The platform specific ID of the performance counter.
  * @param[in] group_fd The file descriptor group to which the performance counter belongs.
  * @return The file directory opened, -1 on failures.
  */
-static int open_pmc_fd(unsigned int pmc_type, int group_fd)
+static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config, int group_fd)
 {
 	static struct perf_event_attr attr;
-	attr.type = PERF_TYPE_RAW;
-	attr.config = pmc_type;
+	attr.type = pmc_type;
+	attr.config = pmc_config;
 	attr.size = sizeof(struct perf_event_attr);
 	attr.read_format = PERF_FORMAT_GROUP | PERF_FORMAT_ID |
 			   PERF_FORMAT_TOTAL_TIME_ENABLED |
@@ -120,21 +121,39 @@ static int open_pmc_fd(unsigned int pmc_type, int group_fd)
 int setup_pmcs(void)
 {
 	elogf(LOG_LEVEL_TRACE, "Openning performance counters fd\n");
-	l1_references_fd = open_pmc_fd(L1_REFERENCES, -1);
+#ifdef CORTEX_A53
+	l1_references_fd = open_pmc_fd(PERF_TYPE_RAW, L1_REFERENCES, -1);
 	if (l1_references_fd == -1)
 		return -1;
-	l1_refills_fd = open_pmc_fd(L1_REFILLS, l1_references_fd);
+	l1_refills_fd = open_pmc_fd(PERF_TYPE_RAW, L1_REFILLS, l1_references_fd);
 	if (l1_refills_fd == -1)
 		return -1;
-	l2_references_fd = open_pmc_fd(L2_REFERENCES, l1_references_fd);
+	l2_references_fd = open_pmc_fd(PERF_TYPE_RAW, L2_REFERENCES, l1_references_fd);
 	if (l2_references_fd == -1)
 		return -1;
-	l2_refills_fd = open_pmc_fd(L2_REFILLS, l1_references_fd);
+	l2_refills_fd = open_pmc_fd(PERF_TYPE_RAW, L2_REFILLS, l1_references_fd);
 	if (l2_refills_fd == -1)
 		return -1;
-	inst_retired_fd = open_pmc_fd(INST_RETIRED, l1_references_fd);
+	inst_retired_fd = open_pmc_fd(PERF_TYPE_RAW, INST_RETIRED, l1_references_fd);
 	if (inst_retired_fd == -1)
 		return -1;
+#elif CORE_I7
+	l1_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFERENCES, -1);
+        if (l1_references_fd == -1)
+                return -1;
+        l1_refills_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFILLS, l1_references_fd);
+        if (l1_refills_fd == -1)
+                return -1;
+        l2_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFERENCES, l1_references_fd);
+        if (l2_references_fd == -1)
+                return -1;
+        l2_refills_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFILLS, l1_references_fd);
+        if (l2_refills_fd == -1)
+                return -1;
+        inst_retired_fd = open_pmc_fd(PERF_TYPE_HARDWARE, INST_RETIRED, l1_references_fd);
+        if (inst_retired_fd == -1)
+                return -1;
+#endif
 	return l1_references_fd;
 }
 
