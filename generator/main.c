@@ -403,12 +403,12 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		parsed_args->memory_profiling_enable = strtoul(arg, NULL, 0);
 		break;
 	case 'C':
-		memory_profiling_core_affinity = strtoul(arg, NULL, 0);
+		long unsigned int memory_profiling_core_affinity = strtoul(arg, NULL, 0);
 		CPU_SET(memory_profiling_core_affinity,
 			&parsed_args->memory_profiling_core_affinity);
 		break;
 	case 'B':
-		memory_profiling_time_bucket = strtoul(arg, NULL, 0);
+		parsed_args->memory_profiling_time_bucket = strtoul(arg, NULL, 0);
 		break;
 #endif
 	default:
