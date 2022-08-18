@@ -12,6 +12,7 @@
 
 #include <sched.h>
 #include <stdio.h>
+#include "performance_counters.h"
 
 /// 1 KB in bytes
 #define KB 1024
@@ -21,9 +22,7 @@
 ///Struct used to hold data sampled from the counters.
 struct sampling_data {
 	long unsigned samples; ///< The amount of measurements recorded.
-	long unsigned sum; ///< Sum of measurement recorded.
-	long unsigned min; ///< Minimal measurement recorded.
-	long unsigned max; ///< Maximal measurement recorded.
+	struct perf_counters sum; ///< Sum of measurement recorded.
 };
 
 int setup_perf_sampler(unsigned iterations, cpu_set_t core_affinity, long unsigned time_bucket);

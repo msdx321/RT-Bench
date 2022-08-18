@@ -39,7 +39,7 @@ static struct timespec time_bucket;
 static struct timespec rem;
 
 
-static unsigned long first_l2_refills_sample;
+static struct perf_counters first_sample;
 static unsigned sampling_counter;
 static unsigned expected_samples;
 static struct sampling_data* sampling_data;
@@ -50,16 +50,20 @@ static void* sampling(void* dummy)
 	while (sampling_alive) {
 		if (sampling_active) {
 			if (sampling_counter == 0) {
-				first_l2_refills_sample = pmcs_get_value().l2_refills;
-				sampling_data[sampling_counter].min = 0;
-				sampling_data[sampling_counter].sum = 0;
-				sampling_data[sampling_counter].max = 0;
+				first_sample = pmcs_get_value();
+				sampling_data[sampling_counter].sum.l1_references = 0;
+				sampling_data[sampling_counter].sum.l1_refills = 0;
+				sampling_data[sampling_counter].sum.l2_references = 0;
+				sampling_data[sampling_counter].sum.l2_refills = 0;
+				sampling_data[sampling_counter].sum.inst_retired = 0;
 			}
 			else {
-				long unsigned diff = pmcs_get_value().l2_refills-first_l2_refills_sample;
-				sampling_data[sampling_counter].min = (sampling_data[sampling_counter].min >= diff)? diff : sampling_data[sampling_counter].min;
-				sampling_data[sampling_counter].sum += diff;
-				sampling_data[sampling_counter].max = (sampling_data[sampling_counter].max <= diff)? diff : sampling_data[sampling_counter].max;
+				struct perf_counters diff = pmcs_get_value();
+				sampling_data[sampling_counter].sum.l1_references += diff.l1_references-first_sample.l1_references;
+				sampling_data[sampling_counter].sum.l1_refills += diff.l1_refills-first_sample.l1_refills;
+				sampling_data[sampling_counter].sum.l2_references += diff.l2_references-first_sample.l2_references;
+				sampling_data[sampling_counter].sum.l2_refills += diff.l2_refills-first_sample.l2_refills;
+				sampling_data[sampling_counter].sum.inst_retired += diff.inst_retired-first_sample.inst_retired;
 			}
 			sampling_data[sampling_counter].samples++;
 		}
@@ -78,8 +82,6 @@ int setup_perf_sampler(unsigned iterations, cpu_set_t core_affinity, long unsign
 	// setup sampling struct
 	sampling_data = (struct sampling_data*)malloc(5*SECONDS/input_time_bucket*sizeof(struct sampling_data));
 	// @todo: memset the array
-	for (size_t i = 0; i < 5*SECONDS/input_time_bucket; i++)
-		sampling_data[i].min = ULONG_MAX;
 	// pthread_attr
 	int res = pthread_attr_init(&attr);
 	if (res != 0) {
@@ -140,9 +142,9 @@ void stop_sampling(void)
 void log_samples(FILE* filep)
 {
 	// Print header
-	fprintf(filep, "samples, sum, min, max\n");
+	fprintf(filep, "samples, l1_references, l1_refills, l2_references, l2_refills, inst_retired\n");
 	// @todo and max allocated slots
 	for (int j = 0; sampling_data[j].samples > 0; j++) {
-		fprintf(filep, "%lu, %lu, %lu, %lu\n", sampling_data[j].samples, sampling_data[j].sum, sampling_data[j].min, sampling_data[j].max);
+		fprintf(filep, "%lu, %lu, %lu, %lu, %lu, %lu\n", sampling_data[j].samples, sampling_data[j].sum.l1_references, sampling_data[j].sum.l1_refills, sampling_data[j].sum.l2_references, sampling_data[j].sum.l2_refills, sampling_data[j].sum.inst_retired);
 	}
 }
