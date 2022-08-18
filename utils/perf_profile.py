@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 if (__name__ == "__main__"):
     # read file
-    data = pd.read_csv("../vision/benchmarks/mser/data/vga/perf.csv")
+    data = pd.read_csv(sys.argv[1])
     # extract column
     l2_references = np.divide(data["l2_references"], data["samples"])
     l2_references = np.divide(l2_references, l2_references.iloc[-1]).values
@@ -27,4 +28,4 @@ if (__name__ == "__main__"):
     plt.plot(x, inst_retired, label="Inst. Retired")
     plt.ylabel("Cumulative distribution")
     plt.legend()
-    plt.savefig("perf_profile_mser_vga.pdf", bbox_inches='tight')
+    plt.savefig("perf_profile_canny.pdf", bbox_inches='tight')
