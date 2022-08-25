@@ -72,13 +72,14 @@ To enable parsing of JSON files, the [JSON-C](https://github.com/json-c/json-c) 
 
 #### Performance counters and monitoring thread {#perf_support}
 
-This set of feature being specific to the core and platform on which the benchmark will be deployed, two parameters must be added in other to enable them: the ISA and the core model. The table below lists of the flags to add and provide examples of compliant platform.
+This set of feature being specific to the core and platform on which the benchmark will be deployed, two parameters must be added in other to enable them: the ISA and the core model. The table below lists of the flags to add and provide examples of compliant/tested platforms and CPU models.
 
 Additionally, there are equivalent Make variables that will enable the corresponding parameters when issuing a `make` command.
 
-|    ISA    |     CORE     | Make Variable |   Platform    |
-| :-------: | :----------: | :------------:| :-----------: |
-| `-DAARCH64` | `-DCORTEX_A53` | `CORE=CORTEX_A53` | Xilinx ZCU102 |
+|     ISA     |      CORE      |   Make Variable   | Platform/CPU Model  |
+| :---------: | :------------: | :----------------:| :-----------------: |
+| `-DAARCH64` | `-DCORTEX_A53` | `CORE=CORTEX_A53` | Xilinx ZCU102       |
+| `-DX86_64`  | `-DCORE_I7`    | `CORE=CORE_I7`    | Intel Core i7-8550U |
 
 @author Mattia Nicolella
 @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de>, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
