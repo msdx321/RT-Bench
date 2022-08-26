@@ -19,13 +19,13 @@ if (__name__ == "__main__"):
     inst_retired = np.divide(inst_retired, inst_retired.iloc[-1]).values
     # plot
     x = np.arange(len(inst_retired))
-    plt.title("MSER-VGA")
+    plt.title(sys.argv[2])
     plt.plot(x, l1_references, label="L1 References")
     plt.plot(x, l1_refills, label="L1 Refills")
     plt.plot(x, l2_references, label="LLC References")
     plt.plot(x, l2_refills, label="LLC Refills")
     plt.xlabel("Time")
     plt.plot(x, inst_retired, label="Inst. Retired")
-    plt.ylabel("Cumulative distribution")
+    plt.ylabel("Normalized cumulative distribution")
     plt.legend()
-    plt.savefig("perf_profile_canny.pdf", bbox_inches='tight')
+    plt.savefig(sys.argv[2]+".pdf", bbox_inches='tight')
