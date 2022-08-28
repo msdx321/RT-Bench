@@ -70,6 +70,8 @@ Some benchmark classes (e.g., synthetic workloads) measure specific impact on th
 To keep the mandatory dependencies to a minimum, the support for parsing JSON configuration files (`-g` option) is disabled.
 To enable parsing of JSON files, the [JSON-C](https://github.com/json-c/json-c) library must be at least at version 0.15 and the `-DJSON_SUPPORT` flag must be added to the compilation command line.
 
+This feature can be enabled on-the-fly while issuing a make commad by defining the `JSON=1` variable.
+
 #### Performance counters and monitoring thread {#perf_support}
 
 This set of feature being specific to the core and platform on which the benchmark will be deployed, two parameters must be added in other to enable them: the ISA and the core model. The table below lists of the flags to add and provide examples of compliant/tested platforms and CPU models.
@@ -81,6 +83,6 @@ Additionally, there are equivalent Make variables that will enable the correspon
 | `-DAARCH64` | `-DCORTEX_A53` | `CORE=CORTEX_A53` | Xilinx ZCU102       |
 | `-DX86_64`  | `-DCORE_I7`    | `CORE=CORE_I7`    | Intel Core i7-8550U |
 
-@author Mattia Nicolella
+@author Mattia Nicolella, Denis Hoornaert
 @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de>, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
 SPDX-License-Identifier: MIT

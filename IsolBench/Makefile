@@ -1,22 +1,16 @@
+include ../generator/Makefile
 CC=gcc
 PGMS=bandwidth latency
 BASE_SRC=$(wildcard ../generator/*.c)
 BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
 override CFLAGS+=-O2 -Wall -g -I../generator -DGCC -DEXTENDED_REPORT
 CXXFLAGS=$(CFLAGS)
-LDFLAGS=-Wl,--no-as-needed -lrt -lm -pthread -ljson-c -Wl,--wrap=malloc -Wl,--wrap=mmap
-
-
-ifdef CORE
-ifeq ($(CORE),CORTEX_A53)
-override CFLAGS +=-DAARCH64 -DCORTEX_A53
-endif
-endif
+override LDFLAGS+=-Wl,--no-as-needed
 
 
 all: $(PGMS)
 latency:latency.o $(BASE_O)
-bandwidth: bandwidth.o
+bandwidth: bandwidth.o $(BASE_O)
 	$(CC) $(CFLAGS) $(LDFLAGS) $< $(BASE_SRC) -o $@
 clean:
 	rm *.o $(PGMS) $(BASE_O)
