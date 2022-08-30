@@ -88,6 +88,7 @@ static int l2_refills_fd;
 /// File descriptor for instruction retired
 static int inst_retired_fd;
 
+#if defined(CORTEX_A53) || defined(CORE_I7)
 /**
  * @brief Open a file descriptor for the performance counter specified.
  * @param[in] pmc_type Specify the event type.
@@ -114,6 +115,7 @@ static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config, int group
 
 	return fd;
 }
+#endif
 
 /** @brief Enable user-space access to performance counters.
  * @return Group_fd head's pid on sucess, -1 on error.
