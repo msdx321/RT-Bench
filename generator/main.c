@@ -162,6 +162,7 @@ static int set_sched_fifo_prio(unsigned int prio)
 	return ret;
 }
 
+#ifdef JSON_SUPPORT
 /** @brief Convert the long options to their short version.
  * @param[in] arg The option to shorten.
  * @returns The shortened option.
@@ -207,6 +208,7 @@ static char field_to_abbrv_mapping(char *arg)
 		exit(0);
 	}
 }
+#endif
 
 /** @brief Parse cli or JSON options and arguments.
  * @param[in] key The parsed key (e.g. s if the parameters is -s 100) .
