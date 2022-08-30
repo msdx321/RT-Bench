@@ -28,9 +28,6 @@ static pthread_t sampler_thread;
 static pthread_attr_t attr;
 static struct sched_param params;
 
-static sem_t sampler_sync;
-
-
 static unsigned sampling_alive = 0;
 
 static unsigned sampling_active = 0;
