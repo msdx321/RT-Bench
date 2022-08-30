@@ -9,8 +9,12 @@ override LDFLAGS+=-Wl,--no-as-needed
 
 
 all: $(PGMS)
-latency:latency.o $(BASE_O)
+
+latency: latency.o $(BASE_O)
+	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+
 bandwidth: bandwidth.o $(BASE_O)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< $(BASE_SRC) -o $@
+	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+
 clean:
 	rm *.o $(PGMS) $(BASE_O)
