@@ -11,6 +11,10 @@ ifdef CORE
 ifeq ($(CORE),CORTEX_A53)
 override CFLAGS +=-DAARCH64 -DCORTEX_A53
 endif
+ifeq ($(CORE),CORE_I7)
+override CFLAGS +=-DX86_64 -DCORE_I7
+endif
+
 endif
 
 

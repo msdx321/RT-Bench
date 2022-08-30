@@ -72,8 +72,10 @@ static struct itimerspec deadline_timing;
 /// The file pointer to the timing output file.
 static FILE *filep = NULL;
 
+#if defined(CORTEX_A53) || defined(CORE_I7)
 /// The file pointer to the pruntime performance counter monitoring file.
 static FILE *filep_sampler = NULL;
+#endif
 
 /// Semaphore used to determine if a new job can be started.
 static sem_t period_sem;
