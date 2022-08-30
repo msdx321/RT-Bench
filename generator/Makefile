@@ -9,7 +9,7 @@ endif
 
 ifeq ($(JSON),1)
 override CFLAGS+=-DJSON_SUPPORT
-override LD_FLAGS+=-ljson-c
+override LDFLAGS+=-ljson-c
 endif
 
 override LDFLAGS += -lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap
