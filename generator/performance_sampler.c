@@ -70,7 +70,7 @@ static void* sampling(void* dummy)
 		sampling_counter++;
 		nanosleep(&time_bucket, &rem);
 	}
-	pthread_exit (NULL);
+	pthread_exit(NULL);
 }
 
 
