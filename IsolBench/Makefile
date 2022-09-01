@@ -17,4 +17,4 @@ bandwidth: bandwidth.o $(BASE_O)
 	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
 
 clean:
-	rm *.o $(PGMS) $(BASE_O)
+	rm -f *.o $(PGMS) $(BASE_O)

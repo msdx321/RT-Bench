@@ -8,6 +8,6 @@ CXXFLAGS=$(CFLAGS)
 
 all: $(PGMS)
 overhead:overhead.o $(BASE_O)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< $(BASE_SRC) -o $@
+	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
 clean:
 	rm *.o $(PGMS) $(BASE_O)
