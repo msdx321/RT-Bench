@@ -27,7 +27,7 @@ The project has a top level Makefile that can be used to quickly perform certain
 
 To enable certain RT-Bench features it is necessary to supply the make command with additional variables.
 
-To accomodate so it is possible to add these variables before invoking the `make` command.
+To accommodate so it is possible to add these variables before invoking the `make` command.
 The example below will include support for JSON configuration files (discussed [here](@ref #benchmarks)) to the default make target:
 
 ```{.sh}
