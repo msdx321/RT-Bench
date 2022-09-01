@@ -3,7 +3,7 @@ CC=gcc
 PGMS=overhead
 BASE_SRC=$(wildcard ../generator/*.c)
 BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
-CFLAGS=-O2 -Wall -g -I../generator -DGCC
+override CFLAGS+=-O2 -Wall -g -I../generator -DGCC
 CXXFLAGS=$(CFLAGS)
 
 all: $(PGMS)

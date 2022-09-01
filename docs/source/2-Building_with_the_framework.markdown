@@ -10,6 +10,8 @@ In the current implementation the framework has some
 dependencies the user has to be aware of:
 
 - A shell that can run scripts in Bash >= 5.
+- git >= 2.37.
+- git LFS >= 2.13: _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.
 - Glibc: Provides primitives used by the memory watcher and the argument parser.
 - POSIX.4 real-time signals: used to execute the benchmark periodically and to gather stats.
 - Linux scheduler syscalls: Used to change the scheduling policy.
