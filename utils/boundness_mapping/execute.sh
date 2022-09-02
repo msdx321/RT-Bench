@@ -1,10 +1,13 @@
 CUR_PATH=`pwd`
 
+mkdir data/
+
 # Tacle-Bench
 BENCH_KERNEL=(binarysearch bitonic complex_updates countnegative deg2rad fft fir2dim insertsort jfdctint ludcmp md5 pm quicksort recursion st bitcount bsort cosf cubic fac filterbank iir isqrt lms matrix1 minver prime rad2deg sha)
 BENCH_SEQUENTIAL=(adpcm_dec ammunition epic gsm_enc huff_dec mpeg2 petrinet rijndael_enc susan adpcm_enc cjpeg_transupp dijkstra fmref gsm_dec h264_dec huff_enc ndes rijndael_dec statemate)
 BENCH_TEST=(cover duff test3)
 # Compile with flag
+mkdir data/tacle/
 cd ../../rt-tacle-bench
 make CORE=CORE_I7
 # Execute for all
@@ -40,6 +43,7 @@ cd ../
 # Vision (SD-VBS)
 BENCH_VISION=(disparity localization mser sift stitch texture_synthesis tracking)
 # Compile with flag
+mkdir data/vision/
 cd ../../vision/benchmarks/
 for bench in ${BENCH_VISION[@]}; do
 	echo ${bench}
@@ -56,8 +60,9 @@ for bench in ${BENCH_VISION[@]}; do
 done
 
 # image-filters
-BENCH_IMAGE_FILTERS=(gaussian_noise3  gaussian_noise5  gaussian_noise7  grayscale sepia  sobel  sobel5 threshold)
+BENCH_IMAGE_FILTERS=(gaussian_noise3  gaussian_noise5  gaussian_noise7  grayscale sepia  sobel  sobel5 threshold canny)
 # Compile with flag
+mkdir data/image-filters/
 cd ../../image-filters
 make CORE=CORE_I7
 # Execute for all
