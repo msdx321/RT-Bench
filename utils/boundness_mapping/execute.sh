@@ -1,5 +1,8 @@
-CUR_PATH=`pwd`
+# Set frequency/scaling governer
+echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 
+# Setup base
+CUR_PATH=`pwd`
 mkdir data/
 
 # Tacle-Bench
