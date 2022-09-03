@@ -232,6 +232,9 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	unsigned long long tasks = 0;
 	int arg_len = 0;
 	errno = 0;
+#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+	unsigned long long memory_profiling_core_affinity;
+#endif
 
 	switch (key) {
 	case 'b':
@@ -405,7 +408,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		parsed_args->memory_profiling_enable = strtoul(arg, NULL, 0);
 		break;
 	case 'C':
-		long unsigned int memory_profiling_core_affinity = strtoul(arg, NULL, 0);
+		memory_profiling_core_affinity = strtoul(arg, NULL, 0);
 		CPU_SET(memory_profiling_core_affinity,
 			&parsed_args->memory_profiling_core_affinity);
 		break;
