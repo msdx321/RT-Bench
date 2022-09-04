@@ -31,12 +31,14 @@
 #define L2_REFERENCES 0x16
 #define L2_REFILLS 0x17
 #define INST_RETIRED 0x08
+#define CPU_CYCLES 0x11
 #elif CORE_I7
 #define L1_REFERENCES (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
 #define L1_REFILLS (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
 #define L2_REFERENCES (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
 #define L2_REFILLS (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
 #define INST_RETIRED PERF_COUNT_HW_INSTRUCTIONS
+#define CPU_CYCLES PERF_COUNT_HW_REF_CPU_CYCLES
 #else
 #define L1_REFERENCES 0x0
 #define L1_REFILLS 0x0
@@ -71,6 +73,7 @@ struct read_format {
 	struct event l2_references;
 	struct event l2_refills;
 	struct event inst_retired;
+	struct event clock_count;
 };
 
 /// File descriptor for L1-D references (also, group-fd head)
@@ -87,6 +90,9 @@ static int l2_refills_fd;
 
 /// File descriptor for instruction retired
 static int inst_retired_fd;
+
+/// File descriptor for clock cycles count
+static int clock_count_fd;
 
 #if defined(CORTEX_A53) || defined(CORE_I7)
 /**
@@ -139,6 +145,9 @@ int setup_pmcs(void)
 	inst_retired_fd = open_pmc_fd(PERF_TYPE_RAW, INST_RETIRED, l1_references_fd);
 	if (inst_retired_fd == -1)
 		return -1;
+	clock_count_fd = open_pmc_fd(PERF_TYPE_RAW, CPU_CYCLES, l1_references_fd);
+        if (clock_count_fd == -1)
+                return -1;
 #elif CORE_I7
 	l1_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFERENCES, -1);
         if (l1_references_fd == -1)
@@ -154,6 +163,9 @@ int setup_pmcs(void)
                 return -1;
         inst_retired_fd = open_pmc_fd(PERF_TYPE_HARDWARE, INST_RETIRED, l1_references_fd);
         if (inst_retired_fd == -1)
+                return -1;
+	clock_count_fd = open_pmc_fd(PERF_TYPE_HARDWARE, CPU_CYCLES, l1_references_fd);
+        if (clock_count_fd == -1)
                 return -1;
 #endif
 	return l1_references_fd;
@@ -195,6 +207,9 @@ int teardown_pmcs(void)
 	ret = close_pmc_fd(inst_retired_fd);
 	if (ret == -1)
 		return ret;
+	ret = close_pmc_fd(clock_count_fd);
+        if (ret == -1)
+                return ret;
 	return 0;
 }
 
@@ -215,5 +230,6 @@ struct perf_counters pmcs_get_value(void)
 	res.l2_references = measurement.l2_references.value;
 	res.l2_refills = measurement.l2_refills.value;
 	res.inst_retired = measurement.inst_retired.value;
+	res.clock_count = measurement.clock_count.value;
 	return res;
 }

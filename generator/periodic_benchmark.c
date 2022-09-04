@@ -315,6 +315,7 @@ static void period_handler(int signo, siginfo_t *info, void *context)
 					 job_perf_counters_end.l2_references,
 					 job_perf_counters_end.l2_refills,
 					 job_perf_counters_end.inst_retired,
+					 job_perf_counters_end.clock_count,
 					 extra_measurement);
 
 		}
@@ -330,7 +331,7 @@ static void period_handler(int signo, siginfo_t *info, void *context)
 						 last_deadline_timestamp,
 						 job_end_timestamp,
 						 job_deadline_timestamp, 0, 0,
-						 0, 0, 0, 0, 0, 0, 0.0);
+						 0, 0, 0, 0, 0, 0, 0, 0.0);
 			}
 		}
 #endif /* PRINT_SKIPPED_DEADLINE */
@@ -542,7 +543,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		}
 		filep = fopen(fname, "w+");
 		char log_header[1024];
-		strcat(log_header, "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),period_start(seconds),period_end(seconds),job_end(seconds),job_deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_utilization,job_density,job_l1_references,job_l1_misses,ob_l1_miss_ratio(%%),job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),instructions_retired");
+		strcat(log_header, "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),period_start(seconds),period_end(seconds),job_end(seconds),job_deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_utilization,job_density,job_l1_references,job_l1_misses,ob_l1_miss_ratio(%%),job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),instructions_retired,cpu_clock_count");
 #ifdef EXTENDED_REPORT
 		strcat(log_header, benchmark_log_header());
 #endif
