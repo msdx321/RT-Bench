@@ -13,7 +13,7 @@ BENCH_TEST=(cover duff test3)
 # Compile with flag
 mkdir data/tacle/
 cd ../../rt-tacle-bench
-make CORE=CORE_I7
+make CORE=${CORE}
 # Execute for all
 cd bench/
 ## Kernel
@@ -52,7 +52,7 @@ cd ../../vision/benchmarks/
 for bench in ${BENCH_VISION[@]}; do
 	echo ${bench}
 	cd ${bench}/
-	make CORE=CORE_I7
+	make CORE=${CORE}
 	cd ../
 done
 # Execute for all
@@ -68,7 +68,7 @@ BENCH_IMAGE_FILTERS=(gaussian_noise3  gaussian_noise5  gaussian_noise7  grayscal
 # Compile with flag
 mkdir data/image-filters/
 cd ../../image-filters
-make CORE=CORE_I7
+make CORE=${CORE}
 # Execute for all
 for bench in ${BENCH_IMAGE_FILTERS[@]}; do
 	sudo ./${bench} -d 3 -p 3 -l 2 -c 3 -t 25 -b "inputs/vga.bmp ${bench}.bmp"
