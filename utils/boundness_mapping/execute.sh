@@ -1,5 +1,6 @@
 # Set frequency/scaling governer
 echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+CORE=CORTEX_A53
 
 # Setup base
 CUR_PATH=`pwd`
