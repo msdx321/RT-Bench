@@ -143,7 +143,8 @@ static void stop_benchmark(int status, void *arg)
 			perror("Error during output file close");
 		}
 	}
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	if (arg != NULL) {
 		unsigned *memory_profiling_enable = (unsigned *)arg;
 		if (*memory_profiling_enable) {
@@ -183,7 +184,8 @@ static void stop_benchmark(int status, void *arg)
 	}
 	elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
 	benchmark_teardown(benchmark_param_num, benchmark_params);
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	res = teardown_pmcs();
 	if (res < 0) {
 		perror("Error: performance counters file descriptors could not be closed\n");
@@ -486,13 +488,45 @@ int periodic_benchmark(struct execution_options *exec_opts)
 	// status variables
 	int res;
 
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	// Initialize the performance sampler thread
 	if (exec_opts->memory_profiling_enable) {
 		elogf(LOG_LEVEL_TRACE,
 		      "Initializing runtime performance sampling\n");
-		filep_sampler = fopen(
-			DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH, "w");
+		char *perf_fname = NULL;
+		const char *perf_fname_postfix = "_perf";
+		int perf_fname_offset = 0, prev_token_len = 0,
+		    perf_fname_postfix_len = strlen(perf_fname_postfix),
+		    output_fname_len = strlen(exec_opts->output_path) +
+				       perf_fname_postfix_len + 1;
+		char *tmp, *saveptr, *prev_token = NULL;
+		if (exec_opts->output_path != NULL) {
+			perf_fname = malloc(sizeof(char) * output_fname_len);
+			//search for the last occurrence of ".csv", writing tokens in the filename
+			tmp = strtok_r(exec_opts->output_path, ".csv",
+				       &saveptr);
+			while (tmp != NULL) {
+				prev_token = tmp;
+				if (prev_token != NULL) {
+					prev_token_len = strlen(prev_token);
+					snprintf(perf_fname + perf_fname_offset,
+						 prev_token_len, "%s",
+						 prev_token);
+					perf_fname_offset += prev_token_len;
+				}
+				tmp = strtok_r(NULL, ".csv", &saveptr);
+			}
+			snprintf(perf_fname + perf_fname_offset,
+				 output_fname_len, "%s", perf_fname_postfix);
+			perf_fname_offset += perf_fname_postfix_len;
+			snprintf(perf_fname + perf_fname_offset, prev_token_len,
+				 "%s", prev_token);
+		} else {
+			perf_fname =
+				DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH;
+		}
+		filep_sampler = fopen(perf_fname, "w");
 		res = setup_perf_sampler(
 			exec_opts->tasks_to_launch,
 			exec_opts->memory_profiling_core_affinity,
@@ -510,7 +544,8 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		perror("Error during deadline semaphore initialization");
 		return res;
 	}
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	res = on_exit(stop_benchmark,
 		      (void *)&(exec_opts->memory_profiling_enable));
 #else
@@ -548,7 +583,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		strcat(log_header, benchmark_log_header());
 #endif
 		strcat(log_header, "\n");
-		fprintf(filep, "%s",log_header);
+		fprintf(filep, "%s", log_header);
 		if (exec_opts->output_path != NULL) {
 			free(exec_opts->output_path);
 		}
@@ -591,7 +626,8 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		start_memory_watcher(exec_opts->bytes_to_preallocate);
 	}
 
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	res = setup_pmcs();
 	if (res < 0) {
 		return res;
@@ -641,14 +677,16 @@ int periodic_benchmark(struct execution_options *exec_opts)
 			return res;
 		}
 // we start executing the job
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 		if (exec_opts->memory_profiling_enable) {
 			start_sampling();
 		}
 		job_perf_counters_start = pmcs_get_value();
 #endif
 		benchmark_execution(benchmark_param_num, benchmark_params);
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 		job_perf_counters_end = pmcs_get_value();
 		if (exec_opts->memory_profiling_enable) {
 			stop_sampling();

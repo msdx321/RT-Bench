@@ -188,7 +188,8 @@ static char field_to_abbrv_mapping(char *arg)
 		return 'P';
 	else if (!strcmp(arg, "sched-runtime"))
 		return 'T';
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	else if (!strcmp(arg, "memory-profiling-enable"))
 		return 'M';
 	else if (!strcmp(arg, "memory-profiling-core"))
@@ -232,7 +233,9 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	unsigned long long tasks = 0;
 	int arg_len = 0;
 	errno = 0;
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+	char *tmpstr,*output_extension = "";
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	unsigned long long memory_profiling_core_affinity;
 #endif
 
@@ -246,7 +249,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 			parsed_args->args =
 				(char **)malloc(sizeof(char *) * arg_len);
 			char sep[] = " ";
-			char *ptr = strtok((char*) arg, sep);
+			char *ptr = strtok((char *)arg, sep);
 			while (ptr != NULL) {
 				parsed_args->args[parsed_args->args_num] =
 					(char *)malloc(sizeof(char) *
@@ -332,14 +335,27 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		break;
 	case 'o':
 		arg_len = strlen(arg);
-		parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
+		//add csv extension if needed
+		tmpstr=strstr(arg, ".csv");
+		if (tmpstr!=NULL && strlen(tmpstr) == 4) {
+			parsed_args->output_path =
+				malloc(sizeof(char) * (arg_len + 1));
+			output_extension = "";
+		} else {
+			parsed_args->output_path = malloc(
+				sizeof(char) *
+				(arg_len + strlen(output_extension) + 1));
+			output_extension = ".csv";
+		}
 		if (parsed_args->output_path == NULL) {
 			argp_failure(
 				state, EXIT_FAILURE, errno,
 				"Can't allocate memory for output filename.");
 		}
-		strncpy(parsed_args->output_path, arg,
-			sizeof(char) * arg_len + 1);
+		snprintf(parsed_args->output_path,
+			 sizeof(char) *
+				 (arg_len + strlen(output_extension) + 1),
+			 "%s%s", arg, output_extension);
 		break;
 	case 'l':
 		log_level = atoi(arg);
@@ -352,7 +368,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		break;
 	case 'c':
 		// we create the mask based on what cores the user has specified.
-		affinity_substr = (char*) arg;
+		affinity_substr = (char *)arg;
 		//we read one core id at a time and we insert it in the mask
 		while (affinity_substr != NULL) {
 			res = sscanf(affinity_substr, "%d%*s", &affinity_core);
@@ -403,7 +419,8 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	case 'P':
 		parsed_args->period = strtoull(arg, NULL, 0);
 		break;
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 	case 'M':
 		parsed_args->memory_profiling_enable = strtoul(arg, NULL, 0);
 		break;
@@ -413,7 +430,8 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 			&parsed_args->memory_profiling_core_affinity);
 		break;
 	case 'B':
-		parsed_args->memory_profiling_time_bucket = strtoul(arg, NULL, 0);
+		parsed_args->memory_profiling_time_bucket =
+			strtoul(arg, NULL, 0);
 		break;
 #endif
 	default:
@@ -449,17 +467,18 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 		parsed_args->memory_profiling_enable = 0;
 		CPU_ZERO(&parsed_args->memory_profiling_core_affinity);
 		parsed_args->memory_profiling_time_bucket = 10000000;
+		parsed_args->output_path = NULL;
 		break;
 #ifdef JSON_SUPPORT
 	case 'g':
 		json_object *root = json_object_from_file(arg);
-		if(root == NULL){
+		if (root == NULL) {
 			argp_error(
 				state,
-			  "Error: Cannot open JSON configuration file.");
+				"Error: Cannot open JSON configuration file.");
 			break;
 		}
-		printf("%d",root==NULL);
+		printf("%d", root == NULL);
 		json_object_object_foreach(root, first, second)
 		{
 			res = interpret_opt(field_to_abbrv_mapping(first),
@@ -570,7 +589,8 @@ int main(int argc, char **argv)
 		{ "sched-period", 'P', "ns", 0,
 		  "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least --sched-period has to be specified to set sched_deadline params. If deadline is not specified, deadline is set to period. If runtime is not specified, runtime is set to deadline. NOTE: These parameters are different from --period and --deadline used to control the repetitive execution of the thread. To generate valid execution that are not truncated under hard server reservation, period < sched-period and deadline < sched-deadline." },
 		{ 0, 0, 0, 0, "Reporting options:", 5 },
-#if (defined(AARCH64) && defined(CORTEX_A53)) || (defined(X86_64) && defined(CORE_I7))
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
 		{ "memory-profiling-enable", 'M', "bool", 0,
 		  "Enables runtime memory profiling. Specify '1' to enable or '0' otherwise." },
 		{ "memory-profiling-core", 'C', "core0, core1,...", 0,

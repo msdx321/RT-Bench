@@ -128,7 +128,7 @@ static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config, int group
  */
 int setup_pmcs(void)
 {
-	elogf(LOG_LEVEL_TRACE, "Openning performance counters fd\n");
+	elogf(LOG_LEVEL_TRACE, "Opening performance counters fd\n");
 #ifdef CORTEX_A53
 	l1_references_fd = open_pmc_fd(PERF_TYPE_RAW, L1_REFERENCES, -1);
 	if (l1_references_fd == -1)

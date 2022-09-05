@@ -140,7 +140,7 @@ void stop_sampling(void)
 void log_samples(FILE* filep)
 {
 	// Print header
-	fprintf(filep, "samples, l1_references, l1_refills, l2_references, l2_refills, inst_retired\n");
+	fprintf(filep, "samples,l1_references,l1_refills,l2_references,l2_refills,inst_retired\n");
 	// @todo and max allocated slots
 	for (int j = 0; sampling_data[j].samples > 0; j++) {
 		fprintf(filep, "%lu, %lu, %lu, %lu, %lu, %lu\n", sampling_data[j].samples, sampling_data[j].sum.l1_references, sampling_data[j].sum.l1_refills, sampling_data[j].sum.l2_references, sampling_data[j].sum.l2_refills, sampling_data[j].sum.inst_retired);
