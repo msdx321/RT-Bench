@@ -231,9 +231,9 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	int affinity_core;
 	char *affinity_substr = NULL;
 	unsigned long long tasks = 0;
+	char *output_extension = "";
 	int arg_len = 0;
 	errno = 0;
-	char *tmpstr,*output_extension = "";
 #if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
 	(defined(X86_64) && defined(CORE_I7))
 	unsigned long long memory_profiling_core_affinity;
@@ -335,27 +335,37 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		break;
 	case 'o':
 		arg_len = strlen(arg);
+		char* copy_fname=malloc(sizeof(char)*arg_len),*saveptr,*token;
+		int fname_offset=0,path_len=0,token_len=0;
+		snprintf(copy_fname,sizeof(char)*arg_len,"%s",arg);
 		//add csv extension if needed
-		tmpstr=strstr(arg, ".csv");
-		if (tmpstr!=NULL && strlen(tmpstr) == 4) {
+		if (strcmp(arg+arg_len-5,".csv")==0) {
 			parsed_args->output_path =
-				malloc(sizeof(char) * (arg_len + 1));
+				malloc(sizeof(char) * arg_len);
+			path_len = arg_len;
 			output_extension = "";
 		} else {
+			output_extension = ".csv";
 			parsed_args->output_path = malloc(
 				sizeof(char) *
-				(arg_len + strlen(output_extension) + 1));
-			output_extension = ".csv";
+				(arg_len + strlen(output_extension)));
+				path_len=arg_len+strlen(output_extension);
 		}
 		if (parsed_args->output_path == NULL) {
 			argp_failure(
 				state, EXIT_FAILURE, errno,
 				"Can't allocate memory for output filename.");
 		}
-		snprintf(parsed_args->output_path,
-			 sizeof(char) *
-				 (arg_len + strlen(output_extension) + 1),
-			 "%s%s", arg, output_extension);
+		printf("%s\n",output_extension);
+		token = strtok_r(copy_fname, ".csv",&saveptr);
+		while (token != NULL) {
+			token_len = strlen(token);
+			snprintf(parsed_args->output_path + fname_offset, path_len, "%s",token);
+			fname_offset += token_len;
+			token = strtok_r(NULL, ".csv", &saveptr);
+		}
+		snprintf(parsed_args->output_path + fname_offset, path_len,"%s", output_extension);
+		free(copy_fname);
 		break;
 	case 'l':
 		log_level = atoi(arg);

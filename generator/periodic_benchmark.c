@@ -496,32 +496,31 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		      "Initializing runtime performance sampling\n");
 		char *perf_fname = NULL;
 		const char *perf_fname_postfix = "_perf";
-		int perf_fname_offset = 0, prev_token_len = 0,
+		int perf_fname_offset = 0, token_len = 0,
 		    perf_fname_postfix_len = strlen(perf_fname_postfix),
-		    output_fname_len = strlen(exec_opts->output_path) +
+		    perf_fname_len = strlen(exec_opts->output_path) +
 				       perf_fname_postfix_len + 1;
-		char *tmp, *saveptr, *prev_token = NULL;
+		char *saveptr, *token = NULL,*copy_fname;
+		copy_fname=malloc(sizeof(char)*strlen(exec_opts->output_path));
+		snprintf(copy_fname,sizeof(char)*strlen(exec_opts->output_path),exec_opts->output_path);
 		if (exec_opts->output_path != NULL) {
-			perf_fname = malloc(sizeof(char) * output_fname_len);
+			perf_fname = malloc(sizeof(char) * perf_fname_len);
 			//search for the last occurrence of ".csv", writing tokens in the filename
-			tmp = strtok_r(exec_opts->output_path, ".csv",
+			token = strtok_r(copy_fname, ".csv",
 				       &saveptr);
-			while (tmp != NULL) {
-				prev_token = tmp;
-				if (prev_token != NULL) {
-					prev_token_len = strlen(prev_token);
+			while (token != NULL) {
+					token_len = strlen(token);
 					snprintf(perf_fname + perf_fname_offset,
-						 prev_token_len, "%s",
-						 prev_token);
-					perf_fname_offset += prev_token_len;
-				}
-				tmp = strtok_r(NULL, ".csv", &saveptr);
+						 perf_fname_len, "%s",
+						 token);
+					perf_fname_offset += token_len;
+				token = strtok_r(NULL, ".csv", &saveptr);
 			}
 			snprintf(perf_fname + perf_fname_offset,
-				 output_fname_len, "%s", perf_fname_postfix);
+				 perf_fname_len, "%s", perf_fname_postfix);
 			perf_fname_offset += perf_fname_postfix_len;
-			snprintf(perf_fname + perf_fname_offset, prev_token_len,
-				 "%s", prev_token);
+			snprintf(perf_fname + perf_fname_offset, perf_fname_len,
+				 "%s", ".csv");
 		} else {
 			perf_fname =
 				DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH;
