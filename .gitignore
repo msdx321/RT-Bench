@@ -11,3 +11,5 @@ docs/conf/doxygen-awesome
 .ctags
 *.o
 utils/overhead
+*.csv
+*.log

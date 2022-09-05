@@ -496,31 +496,22 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		      "Initializing runtime performance sampling\n");
 		char *perf_fname = NULL;
 		const char *perf_fname_postfix = "_perf";
-		int perf_fname_offset = 0, token_len = 0,
-		    perf_fname_postfix_len = strlen(perf_fname_postfix),
-		    perf_fname_len = strlen(exec_opts->output_path) +
-				       perf_fname_postfix_len + 1;
-		char *saveptr, *token = NULL,*copy_fname;
-		copy_fname=malloc(sizeof(char)*strlen(exec_opts->output_path));
-		snprintf(copy_fname,sizeof(char)*strlen(exec_opts->output_path),exec_opts->output_path);
+		int perf_fname_postfix_len, perf_fname_len;
+		char *fname_no_ext;
 		if (exec_opts->output_path != NULL) {
+			// write "_perf" before the .csv extension
 			perf_fname = malloc(sizeof(char) * perf_fname_len);
-			//search for the last occurrence of ".csv", writing tokens in the filename
-			token = strtok_r(copy_fname, ".csv",
-				       &saveptr);
-			while (token != NULL) {
-					token_len = strlen(token);
-					snprintf(perf_fname + perf_fname_offset,
-						 perf_fname_len, "%s",
-						 token);
-					perf_fname_offset += token_len;
-				token = strtok_r(NULL, ".csv", &saveptr);
-			}
-			snprintf(perf_fname + perf_fname_offset,
-				 perf_fname_len, "%s", perf_fname_postfix);
-			perf_fname_offset += perf_fname_postfix_len;
-			snprintf(perf_fname + perf_fname_offset, perf_fname_len,
-				 "%s", ".csv");
+			perf_fname_postfix_len = strlen(perf_fname_postfix);
+			perf_fname_len = strlen(exec_opts->output_path) +
+					 perf_fname_postfix_len + 1;
+			fname_no_ext = malloc(sizeof(char) *
+					    strlen(exec_opts->output_path)-3);
+			snprintf(fname_no_ext,
+				 sizeof(char) *
+					 strlen(exec_opts->output_path - 3),
+				 exec_opts->output_path);
+			snprintf(perf_fname, perf_fname_len, "%s%s%s",fname_no_ext,perf_fname_postfix, ".csv");
+			free(fname_no_ext);
 		} else {
 			perf_fname =
 				DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH;
@@ -530,6 +521,8 @@ int periodic_benchmark(struct execution_options *exec_opts)
 			exec_opts->tasks_to_launch,
 			exec_opts->memory_profiling_core_affinity,
 			exec_opts->memory_profiling_time_bucket);
+		free(perf_fname);
+		free(copy_fname);
 		if (res != 0) {
 			perror("Error during the creation of the performance sampler thread\n");
 			return res;
@@ -577,7 +570,14 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		}
 		filep = fopen(fname, "w+");
 		char log_header[1024];
-		strcat(log_header, "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),period_start(seconds),period_end(seconds),job_end(seconds),job_deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_utilization,job_density,job_l1_references,job_l1_misses,ob_l1_miss_ratio(%%),job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),instructions_retired,cpu_clock_count");
+		memset(log_header, 0, 1024);
+		strcat(log_header,
+		       "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),period_start(seconds),period_end(seconds),job_end(seconds),job_deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_utilization,job_density");
+#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
+	(defined(X86_64) && defined(CORE_I7))
+		strcat(log_header,
+		       ",job_l1_references,job_l1_misses,ob_l1_miss_ratio(%%),job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),instructions_retired,cpu_clock_count");
+#endif
 #ifdef EXTENDED_REPORT
 		strcat(log_header, benchmark_log_header());
 #endif
