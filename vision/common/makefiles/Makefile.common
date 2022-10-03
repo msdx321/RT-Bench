@@ -4,8 +4,6 @@
 
 include ../../../../../generator/Makefile
 
-CC=gcc
-
 override CFLAGS += -DGCC -D$(INPUT)
 
 ifdef CHECK_OUTPUT

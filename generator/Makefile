@@ -1,3 +1,7 @@
+ifndef CC
+CC=gcc
+endif
+
 ifdef CORE
 ifeq ($(CORE),CORTEX_A53)
 override CFLAGS +=-DAARCH64 -DCORTEX_A53

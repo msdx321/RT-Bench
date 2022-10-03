@@ -1,5 +1,4 @@
 include ../generator/Makefile
-CC=gcc
 PGMS=bandwidth latency
 BASE_SRC=$(wildcard ../generator/*.c)
 BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
