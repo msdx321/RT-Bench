@@ -102,8 +102,8 @@ static int set_sched_deadline(
 	}
 
 	elogf(LOG_LEVEL_INFO,
-	      "\nsize: %u, policy: %u, flags: %lu, prio: %u"
-	      "\nT: %lu, D: %lu, P: %lu\n",
+	      "\nsize: %u, policy: %u, flags: %llu, prio: %u"
+	      "\nT: %llu, D: %llu, P: %llu\n",
 	      attr.size, attr.sched_policy, attr.sched_flags,
 	      attr.sched_priority, attr.sched_runtime, attr.sched_deadline,
 	      attr.sched_period);
@@ -153,8 +153,8 @@ static int set_sched_fifo_prio(unsigned int prio)
 	}
 
 	elogf(LOG_LEVEL_INFO,
-	      "\nsize: %u, policy: %u, flags: %lu, prio: %u"
-	      "\nT: %lu, D: %lu, P: %lu\n",
+	      "\nsize: %u, policy: %u, flags: %llu, prio: %u"
+	      "\nT: %llu, D: %llu, P: %llu\n",
 	      attr.size, attr.sched_policy, attr.sched_flags,
 	      attr.sched_priority, attr.sched_runtime, attr.sched_deadline,
 	      attr.sched_period);
@@ -306,16 +306,24 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 		}
 
 		seconds = lround(trunc(time_spec));
+// fetestexcept skipped. Valid operation as ieee-754 does not enforce its implementation.
+#if __riscv
+#else
 		res = fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW |
 				   FE_UNDERFLOW);
-		if (res != 0) {
+#endif
+    if (res != 0) {
 			argp_error(state, "Error during conversion in seconds");
 		}
 		nanoseconds =
 			lround((time_spec - trunc(time_spec)) * 1000000000);
-		res = fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW |
+// fetestexcept skipped. Valid operation as ieee-754 does not enforce its implementation.
+#if __riscv
+#else
+    res = fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW |
 				   FE_UNDERFLOW);
-		if (res != 0) {
+#endif
+    if (res != 0) {
 			argp_error(state,
 				   "Error during conversion in nanoseconds");
 		}
@@ -453,7 +461,11 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 	int res = 0;
 	struct execution_options *parsed_args = state->input;
 	errno = 0;
+// feclearexcept skipped for RISC-V. Valid operation as ieee-754 statndard does not enforce its implementation.
+#if __riscv
+#else
 	feclearexcept(FE_ALL_EXCEPT);
+#endif
 #ifdef JSON_SUPPORT
 		json_object *root;
 #endif

@@ -41,12 +41,20 @@ long double get_timestamp();
     asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(cycleLo));                \
   }
 
+#elif defined(__riscv)
+
+#define magic_timing_begin(cycleLo, cycleHi)                                   \
+  {                                                                            \
+    asm volatile("rdtimeh %0" : "=r"(cycleHi));                                \
+    asm volatile("rdtime %0" : "=r"(cycleLo));                                 \
+  }                                                                            \
+
 #else
 
 #define magic_timing_begin(cycleLo, cycleHi)                                   \
   { asm volatile("rdtsc" : "=a"(cycleLo), "=d"(cycleHi)); }
 
-#endif /* _arm_ */
+#endif /* _arm_ or __riscv */
 
 #endif /* GCC */
 
