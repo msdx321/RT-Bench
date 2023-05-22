@@ -1,9 +1,6 @@
 include ../generator/Makefile
 
 PGMS=bandwidth latency
-override CFLAGS+=-O2 -Wall -g -I../generator -DGCC -DEXTENDED_REPORT
-CXXFLAGS=$(CFLAGS)
-override LDFLAGS+=-Wl,--no-as-needed
 
 all: $(PGMS)
 
