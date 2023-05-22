@@ -1,13 +1,17 @@
 # If no target compiler specified, compiled with default gcc
 CC ?= gcc
 
-# Object path
-GENERATOR=$(dir $(lastword $(MAKEFILE_LIST)))
-BASE_O_PATH=$(GENERATOR)/object/$(CC)
-BASE_O=$(BASE_O_PATH)/*.o
+# Paths
+CUR_DIR=$(dir $(lastword $(MAKEFILE_LIST)))
+OBJECT=$(CUR_DIR)/object/$(CC)
+INCLUDE=$(CUR_DIR)/include
+SOURCE=$(CUR_DIR)/src
+
+# Lists of all object files
+BASE_O=$(OBJECT)/*.o
 
 # Basic compilation flags for rt-bench
-override CFLAGS+=-O2 -Wall -g -I$(GENERATOR) -DGCC
+override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
 CXXFLAGS=$(CFLAGS)
 # Add linker's flags
 override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--no-as-needed
@@ -42,26 +46,26 @@ default: all
 rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp
 
 init:
-	mkdir -p $(BASE_O_PATH)
+	mkdir -p $(OBJECT)
 
-get_cpu_timestamp: init $(GENERATOR)/get_cpu_timestamp.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/get_cpu_timestamp.c -o $(BASE_O_PATH)/get_cpu_timestamp.o $(LDFLAGS)
+get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
 
-logging: init $(GENERATOR)/logging.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/logging.c -o $(BASE_O_PATH)/logging.o $(LDFLAGS)
+logging: init $(INCLUDE)/logging.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/logging.c -o $(OBJECT)/logging.o $(LDFLAGS)
 
-memory_watcher: init $(GENERATOR)/memory_watcher.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/memory_watcher.c -o $(BASE_O_PATH)/memory_watcher.o $(LDFLAGS)
+memory_watcher: init $(INCLUDE)/memory_watcher.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/memory_watcher.c -o $(OBJECT)/memory_watcher.o $(LDFLAGS)
 
-performance_counters: init $(GENERATOR)/performance_counters.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_counters.c -o $(BASE_O_PATH)/performance_counters.o $(LDFLAGS)
+performance_counters: init $(INCLUDE)/performance_counters.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/performance_counters.c -o $(OBJECT)/performance_counters.o $(LDFLAGS)
 
-performance_sampler: init $(GENERATOR)/performance_sampler.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_sampler.c -o $(BASE_O_PATH)/performance_sampelr.o $(LDFLAGS)
+performance_sampler: init $(INCLUDE)/performance_sampler.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampelr.o $(LDFLAGS)
 
-periodic_benchmark: init $(GENERATOR)/periodic_benchmark.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/periodic_benchmark.c -o $(BASE_O_PATH)/periodic_benchmark.o $(LDFLAGS)
+periodic_benchmark: init $(INCLUDE)/periodic_benchmark.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
 
-main: init $(GENERATOR)/main.c
-	$(CC) $(CFLAGS) -c $(GENERATOR)/main.c -o $(BASE_O_PATH)/main.o $(LDFLAGS)
+main: init $(SOURCE)/main.c
+	$(CC) $(CFLAGS) -c $(SOURCE)/main.c -o $(OBJECT)/main.o $(LDFLAGS)
 
