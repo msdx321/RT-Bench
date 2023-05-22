@@ -1,6 +1,17 @@
 # If no target compiler specified, compiled with default gcc
 CC ?= gcc
 
+# Object path
+GENERATOR=$(dir $(lastword $(MAKEFILE_LIST)))
+BASE_O_PATH=$(GENERATOR)/object/$(CC)
+BASE_O=$(BASE_O_PATH)/*.o
+
+# Basic compilation flags for rt-bench
+override CFLAGS+=-O2 -Wall -g -I$(GENERATOR) -DGCC
+CXXFLAGS=$(CFLAGS)
+# Add linker's flags
+override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--no-as-needed
+
 # Check for specified core architecture family. When specified, set the required flags.
 ifdef CORE
 ifeq ($(CORE),CORTEX_A53)
@@ -17,14 +28,10 @@ override CFLAGS+=-DJSON_SUPPORT
 override LDFLAGS+=-ljson-c
 endif
 
-# Add linker's flags
-override LDFLAGS += -lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap
-
-# Object path
-
-GENERATOR=$(dir $(lastword $(MAKEFILE_LIST)))
-BASE_O_PATH=$(GENERATOR)/object/$(CC)
-BASE_O=$(BASE_O)/*.o
+# Check if extended report is desired
+ifeq ($(EXTENDED_REPORT),1)
+override CFLAGS+=-DEXTENDED_REPORT
+endif
 
 # RT-Bench core recipes
 
