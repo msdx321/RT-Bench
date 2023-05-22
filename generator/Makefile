@@ -41,22 +41,22 @@ init:
 	mkdir -p $(BASE_O_PATH)
 
 get_cpu_timestamp: init $(GENERATOR)/get_cpu_timestamp.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/get_cpu_timestamp.h -o $(BASE_O_PATH)/get_cpu_timestamp.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/get_cpu_timestamp.c -o $(BASE_O_PATH)/get_cpu_timestamp.o $(LDFLAGS)
 
 logging: init $(GENERATOR)/logging.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/logging.h -o $(BASE_O_PATH)/logging.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/logging.c -o $(BASE_O_PATH)/logging.o $(LDFLAGS)
 
 memory_watcher: init $(GENERATOR)/memory_watcher.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/memory_watcher.h -o $(BASE_O_PATH)/memory_watcher.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/memory_watcher.c -o $(BASE_O_PATH)/memory_watcher.o $(LDFLAGS)
 
 performance_counters: init $(GENERATOR)/performance_counters.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_counters.h -o $(BASE_O_PATH)/performance_counters.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_counters.c -o $(BASE_O_PATH)/performance_counters.o $(LDFLAGS)
 
 performance_sampler: init $(GENERATOR)/performance_sampler.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_sampler.h -o $(BASE_O_PATH)/performance_sampelr.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/performance_sampler.c -o $(BASE_O_PATH)/performance_sampelr.o $(LDFLAGS)
 
 periodic_benchmark: init $(GENERATOR)/periodic_benchmark.h
-	$(CC) $(CFLAGS) -c $(GENERATOR)/periodic_benchmark.h -o $(BASE_O_PATH)/periodic_benchmark.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(GENERATOR)/periodic_benchmark.c -o $(BASE_O_PATH)/periodic_benchmark.o $(LDFLAGS)
 
 main: init $(GENERATOR)/main.c
 	$(CC) $(CFLAGS) -c $(GENERATOR)/main.c -o $(BASE_O_PATH)/main.o $(LDFLAGS)
