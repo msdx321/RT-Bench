@@ -35,6 +35,10 @@ endif
 
 # RT-Bench core recipes
 
+.PHONY: default rtbench
+## Add this recipe such that 'all' recipe in children makefile become the defualt one
+default: all
+## Base recipe to build with the whole RT-Bench core! 
 rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp
 
 init:
