@@ -1,4 +1,4 @@
-include ../generator/Makefile
+include ../generator/rtbench.mk
 
 PGMS=bandwidth latency
 
