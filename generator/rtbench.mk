@@ -3,7 +3,7 @@ CC ?= gcc
 
 # Paths
 CUR_DIR=$(dir $(lastword $(MAKEFILE_LIST)))
-OBJECT=$(CUR_DIR)/object/$(CC)
+OBJECT=$(CUR_DIR)/object/$(notdir $(CC))
 INCLUDE=$(CUR_DIR)/include
 SOURCE=$(CUR_DIR)/src
 
