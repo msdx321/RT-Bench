@@ -102,8 +102,8 @@ static int set_sched_deadline(
 	}
 
 	elogf(LOG_LEVEL_INFO,
-	      "\nsize: %u, policy: %u, flags: %llu, prio: %u"
-	      "\nT: %llu, D: %llu, P: %llu\n",
+	      "\nsize: %u, policy: %u, flags: %lu, prio: %u"
+	      "\nT: %lu, D: %lu, P: %lu\n",
 	      attr.size, attr.sched_policy, attr.sched_flags,
 	      attr.sched_priority, attr.sched_runtime, attr.sched_deadline,
 	      attr.sched_period);
@@ -153,8 +153,8 @@ static int set_sched_fifo_prio(unsigned int prio)
 	}
 
 	elogf(LOG_LEVEL_INFO,
-	      "\nsize: %u, policy: %u, flags: %llu, prio: %u"
-	      "\nT: %llu, D: %llu, P: %llu\n",
+	      "\nsize: %u, policy: %u, flags: %lu, prio: %u"
+	      "\nT: %lu, D: %lu, P: %lu\n",
 	      attr.size, attr.sched_policy, attr.sched_flags,
 	      attr.sched_priority, attr.sched_runtime, attr.sched_deadline,
 	      attr.sched_period);
