@@ -10,6 +10,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdint.h>
+
 /** @brief Reads the processor timestamp counter as an unsigned long long.
  * @return Processor timestamp counter value (in clock cycles) on success, 0 on
  * error.
@@ -41,12 +43,20 @@ long double get_timestamp();
     asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(cycleLo));                \
   }
 
-#elif defined(__riscv)
-
+#elif __riscv_xlen==32
 #define magic_timing_begin(cycleLo, cycleHi)                                   \
   {                                                                            \
     asm volatile("rdtimeh %0" : "=r"(cycleHi));                                \
     asm volatile("rdtime %0" : "=r"(cycleLo));                                 \
+  }                                                                            \
+
+#elif __riscv_xlen==64
+#define magic_timing_begin(cycleLo, cycleHi)                                   \
+  {                                                                            \
+    uint64_t rdtime;                                                           \
+    asm volatile("rdtime %0" : "=r"(rdtime));                                  \
+    cycleLo = rdtime;                                                          \
+    cycleHi = rdtime >> 32;                                                    \
   }                                                                            \
 
 #else
