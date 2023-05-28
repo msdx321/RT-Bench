@@ -28,6 +28,36 @@
     cycleHi = tempCycleHi - cycleHi;\
   }\
 
+#elif __riscv_xlen==32
+
+#define magic_timing_begin(cycleLo, cycleHi) {\
+    asm volatile("rdtimeh %0" : "=r"(cycleHi));\
+    asm volatile("rdtime %0" : "=r"(cycleLo));\
+  }\
+
+#define magic_timing_end(cycleLo, cycleHi) {\
+    unsigned tempCycleLo, tempCycleHi = 0;\
+    asm volatile("rdtimeh %0" : "=r"(tempCycleHi));\
+    asm volatile("rdtime %0" : "=r"(tempCycleLo));\
+    cycleHi = tempCycleHi - cycleHi;\
+    cycleLo = tempCycleLo - cycleLo;\
+  }\
+
+#elif __riscv_xlen==64
+#define magic_timing_begin(cycleLo, cycleHi) {                                 \
+    uint64_t rdtime;                                                           \
+    asm volatile("rdtime %0" : "=r"(rdtime));                                  \
+    cycleLo = rdtime;                                                          \
+    cycleHi = rdtime >> 32;                                                    \
+  }                                                                            \
+
+#define mqgic_timing_end(cycleLo, cycleHi) {                                   \
+    uint64_t rdtime;                                                           \
+    asm volatile("rdtime %0" : "=r"(rdtime));                                  \
+    cycleHi = (rdtime >> 32) -cycleHi;                                         \
+    cycleLo = rdtime - cycleLo;                                                \
+}                                                                              \
+
 #else
 
 #define magic_timing_begin(cycleLo, cycleHi) {          \
