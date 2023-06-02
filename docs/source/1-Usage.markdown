@@ -28,13 +28,17 @@ The project has a top level Makefile that can be used to quickly perform certain
 To enable certain RT-Bench features it is necessary to supply the make command with additional variables.
 
 To accommodate so it is possible to add these variables before invoking the `make` command.
-The example below will include support for JSON configuration files (discussed [here](@ref #benchmarks)) to the default make target:
 
+So far, the top-level Makefile supports three types of parameters:
+ - `CC=<target-compiler>` to select a specific compiler (default is `gcc`). This enables cross compiling!
+ - `CORE=<target-core>` to specify the core model of the target platform. This flag enables performance metric reporting! (**Note:** this flag alone does not enforce cross compiling; please use the previously line as a complement)
+ - `JSON=1` to specify whether the compiled benchmarks will support configuration via the JSON files. Setting this flag to `0` or not precising the flag will disable this feature for compiled benchmarks.
+ - `EXTENDED_REPORT=1` to specify that the target benchmark(s) will provide extended information via the reporting system. (**Note:** This flag does not guarantee that the target benchmark(s) supports this option!)
+
+The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled, and (4) will provide extended report:
 ```{.sh}
-JSON=1 make
+CC=aarch64-linux-gnu-gcc-11 CORE=CORTEX_A53 JSON=1 EXTENDED_REPORT=1 make
 ```
-
-A list of all the targets that can be specified can can be found [here](#compilation).
 
 #### General targets
 

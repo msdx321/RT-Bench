@@ -1,19 +1,14 @@
-include ../generator/Makefile
-CC=gcc
+include ../generator/rtbench.mk
+
 PGMS=bandwidth latency
-BASE_SRC=$(wildcard ../generator/*.c)
-BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
-override CFLAGS+=-O2 -Wall -g -I../generator -DGCC -DEXTENDED_REPORT
-CXXFLAGS=$(CFLAGS)
-override LDFLAGS+=-Wl,--no-as-needed
 
 all: $(PGMS)
 
-latency: latency.o $(BASE_O)
-	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+latency: rtbench
+	$(CC) $(CFLAGS) latency.c $(BASE_O) -o latency $(LDFLAGS)
 
-bandwidth: bandwidth.o $(BASE_O)
-	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+bandwidth: rtbench
+	$(CC) $(CFLAGS) bandwidth.c $(BASE_O) -o bandwidth $(LDFLAGS)
 
 clean:
 	rm -f *.o $(PGMS) $(BASE_O)

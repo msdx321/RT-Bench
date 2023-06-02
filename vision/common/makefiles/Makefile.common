@@ -1,18 +1,16 @@
 #################################
 # Original Author: Sravanthi Kota Venkata
 #################################
+RTBENCH_PATH=${TOP_DIR}/..
+include ${RTBENCH_PATH}/generator/rtbench.mk
 
-include ../../../../../generator/Makefile
+override CFLAGS += -D$(INPUT)
 
-CC=gcc
-
-override CFLAGS += -DGCC -D$(INPUT)
-
-ifdef CHECK_OUTPUT
+ifdef CHECK_OUTPUT #TODO: akin to `EXTENDED_REPORT`?
 override CFLAGS+= -DCHECK
 endif
 
-BASE_DIR := $(TOP_DIR)/../generator
+BASE_DIR := $(TOP_DIR)/../generator/src
 COMMON_DIR := $(TOP_DIR)/common/c
 TIMING_DIR := $(TOP_DIR)/cycles/$(BMARK)
 BMARK_DIR := $(TOP_DIR)/benchmarks/$(BMARK)
@@ -72,7 +70,7 @@ profile: compile-prof
 	@gprof $(BMARK)$(EXE)
 
 
-compile: $(C_SRC)
+compile: rtbench $(C_SRC)
 	@echo
 	@echo -e "Benchmark\t\t- $(BMARK)"
 	@echo -e "${COMPILE_C}"

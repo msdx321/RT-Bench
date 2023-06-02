@@ -42,23 +42,22 @@ sudo pacman -S json-c
 
 ## Compiling RT-Bench
 
-Compiling a RT-Bench compliant benchmark (see [benchmark structure](3-Extending_rt-bench.markdown)) with the framework is relatively easy as with GCC only few optional and mandatory flags are required or adviced.
+Compiling a RT-Bench compliant benchmark (see [benchmark structure](3-Extending_rt-bench.markdown)) with the framework using the provided `Makefile` structure is easy and the best way to benefit from all the features offered by RT-Bench.
 
-It is suggested to follow each [benchmark set](@ref #benchmarks) compilation instructions for best results.
+The `Makefile` provided in [Isolbench]() is a good example of how to use the provided makefile interface/variables.
 
-The simplest compilation line necessary is as follows:
+Typically, once `generator/rtbench.mk` is included, five different variables are accessible:
+ - `rtbench`: recipe to initialize and build the RT-Bench core components for the desired target
+ - `CC`: user specified compiler for the desired target
+ - `CFLAGS`: compilation flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
+ - `BASE_O`: set of object files for the RT-Bench core components
+ - `LDFLAGS`: linker flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
 
-```{.sh}
-gcc -O2 -Wall -g -Ipath/to/rt-bench/generator -lrt -lm -ljson-c -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap target.c path/to/rt-bench/generator/*.c -o target
+Using these variables and recipes, we recomend to write recipes for compiling your benchmark with the following template:
+```{.mk}
+<benchmark>: rtbench
+	$(CC) $(CFLAGS) <benchmark>.c $(BASE_O) -o <benchmark> $(LDFLAGS)
 ```
-
-where:
-
-- `-O2 -Wall -g` are _optional_ but recommended flags.
-- `-Ipath/to/rt-bench/generator` is the path to the `generator/` folder located within your local rt-bench repository (_mandatory_).
-- `-lrt -lm -ljson-c -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap` _must_ appear for the correct working of the RT-Bench core mechanics.
-- `path/to/rt-bench/generator/*.c` is the path to all the components located in the `rt-bench_generator/` folder within your local rt-bench repository.
-- `target` is the name of the benchmark under consideration.
 
 ## Optional RT-Bench specific options
 
