@@ -145,13 +145,6 @@ static int set_sched_fifo_prio(unsigned int prio)
 		return ret;
 	}
 
-	elogf(LOG_LEVEL_INFO,
-	      "\nsize: %u, policy: %u, flags: %llu, prio: %u"
-	      "\nT: %llu, D: %llu, P: %llu\n",
-	      attr.size, attr.sched_policy, attr.sched_flags,
-	      attr.sched_priority, attr.sched_runtime, attr.sched_deadline,
-	      attr.sched_period);
-
 	return ret;
 }
 
