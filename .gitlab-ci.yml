@@ -21,8 +21,8 @@ build-x86_64:
   script:
     - apk update && apk add make git bash binutils gcc g++ imagemagick argp-standalone
     - make setup
-    - CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    - make clean
+    #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- make clean
     - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
   # save all untracked files but the .o and the .bmp files
   artifacts:
@@ -38,9 +38,9 @@ build-aarch64:
   script:
     - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf argp-standalone
     - make setup
-    - CC=g++-aarch64-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    - make clean
-    - CC=gcc-aarch64-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- CC=aarch64-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- make clean
+    - CC=aarch64-none-elf-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 build-riscv:
   stage: build
@@ -49,9 +49,9 @@ build-riscv:
   script:
     - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf argp-standalone
     - make setup
-    - CC=g++-riscv-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    - make clean
-    - CC=gcc-riscv-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- CC=riscv-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- make clean
+    - CC=riscv-none-elf-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all benchmarks once to make sure there are no problems
 test-x86_64:
