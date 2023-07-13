@@ -1,13 +1,16 @@
-include ../generator/Makefile
-CC=gcc
+include ../generator/rtbench.mk
+CC ?=gcc
 PGMS=overhead
-BASE_SRC=$(wildcard ../generator/*.c)
-BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
-override CFLAGS+=-O2 -Wall -g -I../generator -DGCC
+
+ifeq ($(CC),gcc)
+override CFLAGS+=-DGCC
+endif
+
+override CFLAGS+=-O2 -Wall -g -I../generator
 CXXFLAGS=$(CFLAGS)
 
 all: $(PGMS)
-overhead:overhead.o $(BASE_O)
-	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+overhead:overhead.o rtbench
+	$(CC) $(CFLAGS) $< $(BASE_O) -o $@ $(LDFLAGS)
 clean:
 	rm *.o $(PGMS) $(BASE_O)

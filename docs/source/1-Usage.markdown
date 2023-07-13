@@ -3,6 +3,7 @@
 [TOC]
 
 ## Initialization
+
 This project is composed by several submodules, (roughly one per benchmark set) that need to be initialized if the corresponding benchmarks have to be used.
 
 To initialize ALL the benchmarks submodules and the submodules needed to build the documentation, it is enough to issue a `make setup` command from the repo root folder.
@@ -30,12 +31,14 @@ To enable certain RT-Bench features it is necessary to supply the make command w
 To accommodate so it is possible to add these variables before invoking the `make` command.
 
 So far, the top-level Makefile supports three types of parameters:
- - `CC=<target-compiler>` to select a specific compiler (default is `gcc`). This enables cross compiling!
- - `CORE=<target-core>` to specify the core model of the target platform. This flag enables performance metric reporting! (**Note:** this flag alone does not enforce cross compiling; please use the previously line as a complement)
- - `JSON=1` to specify whether the compiled benchmarks will support configuration via the JSON files. Setting this flag to `0` or not precising the flag will disable this feature for compiled benchmarks.
- - `EXTENDED_REPORT=1` to specify that the target benchmark(s) will provide extended information via the reporting system. (**Note:** This flag does not guarantee that the target benchmark(s) supports this option!)
+
+- `CC=<target-compiler>` to select a specific compiler (default is `gcc`). This enables cross compiling!
+- `CORE=<target-core>` to specify the core model of the target platform. This flag enables performance metric reporting! (**Note:** this flag alone does not enforce cross compiling; please use the previously line as a complement)
+- `JSON=1` to specify whether the compiled benchmarks will support configuration via the JSON files. Setting this flag to `0` or not precising the flag will disable this feature for compiled benchmarks.
+- `EXTENDED_REPORT=1` to specify that the target benchmark(s) will provide extended information via the reporting system. (**Note:** This flag does not guarantee that the target benchmark(s) supports this option!)
 
 The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled, and (4) will provide extended report:
+
 ```{.sh}
 CC=aarch64-linux-gnu-gcc-11 CORE=CORTEX_A53 JSON=1 EXTENDED_REPORT=1 make
 ```
@@ -66,6 +69,7 @@ Compilation targets are meant to compile all the benchmarks in a [benchmark set]
 - `compile-vision`: Compiles the [SD-VBS](@ref #SD-VBS) suite.
 - `compile-tacle`: Compiles the [TACLeBench](@ref #rt-tacle-bench) suite.
 - `compile-image-filters`: Compiles the [Image Filers](@ref #image-filters) benchmarks.
+- `compile-utils`: Compiles the utilities in the `utils` folder.
 
 #### Clean targets
 
@@ -75,12 +79,15 @@ Compilation targets are meant to remove most of the non-source code files.
 - `clean-vision`: Cleans the [SD-VBS](@ref #SD-VBS) suite.
 - `clean-tacle`: Cleans the [TACLeBench](@ref #rt-tacle-bench) suite.
 - `clean-image-filters`: Cleans the [Image Filers](@ref #image-filters) benchmarks.
+- `clean-utils`: Cleans the `utils` folder.
 
 #### Benchmark groups
+
 Benchmark suite are also grouped to facilitate certain types of tests.
 Each group will have a single setup, compilation and clean target.
 
 Available groups are:
+
 - `group-WCET`: WCET related benchmarks.
   Includes:
   - [TACLeBench](@ref #rt-tacle-bench)
@@ -106,33 +113,33 @@ The only parameters required to run a benchmark are period and deadline.
 
 As an example the following commands will be used to run the [disparity](@ref #disparity) benchmark from the [San Diego Vision Benchamrks](@ref #SD-VBS) suite:
 
-- `# disparity -p 1 -d 0.5 -t 2 -c 0 -f 99 -m 1M -l 3 -b .`: Run the benchmark 
+- `# disparity -p 1 -d 0.5 -t 2 -c 0 -f 99 -m 1M -l 3 -b .`: Run the benchmark
   with 1 second period, 0.5 seconds deadline, execute only two jobs, pin the
-  process on core 0, use the FIFO scheduler with priority 99, constrain the 
+  process on core 0, use the FIFO scheduler with priority 99, constrain the
   dynamic memory allocation to 1MB during execution with log level 3 (csv output
   on terminal) and take the input images from the current folder.
-- `# disparity -p 1 -d 0.5 -t 2 -c 0 -f 99 -m 10M -l 3 -b .`: Run the benchmark 
+- `# disparity -p 1 -d 0.5 -t 2 -c 0 -f 99 -m 10M -l 3 -b .`: Run the benchmark
   with 1 second period, 0.5 seconds deadline, execute only two jobs, pin the
-  process on core 0, use the FIFO scheduler with priority 99, constrain the 
+  process on core 0, use the FIFO scheduler with priority 99, constrain the
   dynamic memory allocation to 10MB during execution with log level 3 (csv output
   on terminal) and take the input images from the current folder.
-- `# disparity -p 1 -d 0.1 -t 2 -c 0 -f 99 -m 10M -l 3 -b .`: Run the benchmark 
+- `# disparity -p 1 -d 0.1 -t 2 -c 0 -f 99 -m 10M -l 3 -b .`: Run the benchmark
   with 1 second period, 0.1 seconds deadline, execute only two jobs, pin the
-  process on core 0, use the FIFO scheduler with priority 99, constrain the 
+  process on core 0, use the FIFO scheduler with priority 99, constrain the
   dynamic memory allocation to 1MB during execution with log level 3 (csv output
   on terminal) and take the input images from the current folder.
-- `# disparity -p 1 -d 0.3 -t 2 -c 0 -f 99 -m 10M -o output.csv -l 2 -b .`: Run the benchmark 
+- `# disparity -p 1 -d 0.3 -t 2 -c 0 -f 99 -m 10M -o output.csv -l 2 -b .`: Run the benchmark
   with 1 second period, 0.3 seconds deadline, execute only two jobs, pin the
-  process on core 0, use the FIFO scheduler with priority 99, constrain the 
-  dynamic memory allocation to 10MB during execution, with log level 2 (csv output) 
+  process on core 0, use the FIFO scheduler with priority 99, constrain the
+  dynamic memory allocation to 10MB during execution, with log level 2 (csv output)
   on the file called `output.csv` and take the input images from the current folder.
-- `# disparity -p 1 -d 0.3 -c 0 -f 99 -m 10M -o output.csv -b .`: Run the benchmark 
+- `# disparity -p 1 -d 0.3 -c 0 -f 99 -m 10M -o output.csv -b .`: Run the benchmark
   with 1 second period, 0.3 seconds deadline, keep executin jobs untile a `SIGINT` is received, pin the
-  process on core 0, use the FIFO scheduler with priority 99, constrain the 
-  dynamic memory allocation to 10MB during execution, with log level 3 (csv output on terminal) 
+  process on core 0, use the FIFO scheduler with priority 99, constrain the
+  dynamic memory allocation to 10MB during execution, with log level 3 (csv output on terminal)
   on the file called `output.csv` (ignored in this case) and take the input images from the current folder.
 
-@image html demo-bmark.gif "Animated demo executing the SD-VBS disparity benchmark"  width=50%
+@image html demo-bmark.gif "Animated demo executing the SD-VBS disparity benchmark" width=50%
 
 ## Utility scripts
 

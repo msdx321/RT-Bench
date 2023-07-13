@@ -5,7 +5,7 @@ all:
 docs: setup-docs
 	make -C ${CURDIR}/docs
 
-clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters
+clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils
 
 setup: setup-docs setup-tacle setup-image-filters
 
@@ -46,6 +46,10 @@ compile-image-filters:
 	@echo 'Compiling image-filters'
 	make -C ${CURDIR}/image-filters/
 
+compile-utils:
+	@echo 'Compiling utils'
+	make -C ${CURDIR}/utils/
+
 #clean targets
 clean-tacle:
 	@echo 'Cleaning TACLeBench'
@@ -66,6 +70,10 @@ clean-image-filters:
 clean-docs:
 	@echo 'Cleaning docs'
 	make -C ${CURDIR}/docs clean
+
+clean-utils:
+	@echo 'Cleaning utils'
+	make -C ${CURDIR}/utils/ clean
 
 # benchmark suite groups
 

@@ -11,8 +11,9 @@ dependencies the user has to be aware of:
 
 - A shell that can run scripts in Bash >= 5.
 - git >= 2.37.
+- perl >= 5.34.1. (needed for SD-VBS to find the suite root directory).
 - git LFS >= 2.13: _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.
-- Glibc: Provides primitives used by the memory watcher and the argument parser.
+- Glibc >= 2.34: Provides primitives used by the memory watcher and the argument parser. (Older versions might create problems with the makefile scaffolding)
 - POSIX.4 real-time signals: used to execute the benchmark periodically and to gather stats.
 - Linux scheduler syscalls: Used to change the scheduling policy.
 - Linux Perf: Used to read performance counters (currently only on CORTEX A53)

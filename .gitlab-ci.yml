@@ -1,6 +1,84 @@
+# The docker image on which the pipelines will be executed
 image: alpine
 
+stages:
+  - build
+  - test
+  - deploy
+
+#Some global variables
+variables:
+  #submodules config
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_FORCE_HTTPS: "true"
+  GIT_SUBMODULE_DEPTH: 1
+
+# build rt-bench and all public submodules for x86_64, aarch64 and riscv. (with both gcc and g++)
+build-x86_64:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  script:
+    - apk update && apk add make git bash binutils gcc g++
+    - make setup
+    - CC=g++ make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
+    - make clean
+    - make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
+  # save all untracked files but the .o
+  artifacts:
+    untracked: true
+    exclude:
+      - "*.o"
+
+build-aarch64:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  script:
+    - apk update && apk add make git bash binutils gcc-aarch64-none-eabi g++-aarch64-none-eabi
+    - make setup
+    - CC=g++-aarch64-none-eabi make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - make clean
+    - CC=gcc-aarch64-none-eabi make compile-isolbench compile-vision compile-image-filter compile-tacle
+
+build-riscv:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  script:
+    - apk update && apk add make git bash binutils gcc-riscv-none-elf g++-riscv-none-elf
+    - make setup
+    - CC=g++-riscv-none-elf make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - make clean
+    - CC=gcc-riscv-none-elf make compile-isolbench compile-vision compile-image-filter compile-tacle
+
+# run all benchmarks once to make sure there are no problems
+test-x86_64:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  dependencies:
+    - build-x86_64
+  script:
+    - apk upate && apk add find convert
+    - make setup
+    - bash image-filters/input/init.sh
+    - shopt -s nullglob
+    - vision_bmarks=(vision/benchmarks/*/)
+    - tacle_bmarks=(rt-tacle-bench/bench/sequential/*/)
+    - shopt -u nullglob
+    - isolbench_bmarks=($(find IsolBench/ -type f -executable ! -name "*.*"))
+    - image-filters_bmarks=($(find image-filters/ -type f -executable ! -name "*.*"))
+    - for bmark in $tacle_bmarks do $bmark/${bmark##*/} -p 1e-3 -d 1e-3 -t 1 -l 1; done
+    - for bmark in $isolbench_bmarks do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1; done
+    - for bmark in $image-filters_bmarks do for input in $image-filters_inputs do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
+    - for bmark in $vision_bmarks do shopt -s nullglob; vision_inputs=($bmark/data/*/); shopt -u nullglob; for input in $vision_inputs do $input/${bmark##*/} -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
+
+#rebuild the documentation every time there are commits on the main branch
 pages:
+  stage: deploy
+  # no artifacts needed for this job
+  dependencies: []
   script:
     - apk update && apk add doxygen graphviz make git bash sed
     - DOCS_ONLY=1 make setup
