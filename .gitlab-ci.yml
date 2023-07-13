@@ -19,23 +19,24 @@ build-x86_64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc g++
+    - apk update && apk add make git bash binutils gcc g++ imagemagick
     - make setup
     - CC=g++ make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
     - make clean
     - make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
-  # save all untracked files but the .o
+  # save all untracked files but the .o and the .bmp files
   artifacts:
     untracked: true
     exclude:
       - "*.o"
+      - "*.bmp"
 
 build-aarch64:
   stage: build
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc-aarch64-none-eabi g++-aarch64-none-eabi
+    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf
     - make setup
     - CC=g++-aarch64-none-eabi make compile-isolbench compile-vision compile-image-filter compile-tacle
     - make clean
@@ -46,7 +47,7 @@ build-riscv:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc-riscv-none-elf g++-riscv-none-elf
+    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf
     - make setup
     - CC=g++-riscv-none-elf make compile-isolbench compile-vision compile-image-filter compile-tacle
     - make clean
