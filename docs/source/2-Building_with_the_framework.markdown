@@ -11,11 +11,12 @@ dependencies the user has to be aware of:
 
 - A shell that can run scripts in Bash >= 5.
 - git >= 2.37.
-- perl >= 5.34.1. (needed for SD-VBS to find the suite root directory).
+- perl >= 5.34.1. Needed for SD-VBS to find the suite root directory.
 - git LFS >= 2.13: _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.
 - Glibc >= 2.34: Provides primitives used by the memory watcher and the argument parser. (Older versions might create problems with the makefile scaffolding)
 - POSIX.4 real-time signals: used to execute the benchmark periodically and to gather stats.
 - Linux scheduler syscalls: Used to change the scheduling policy.
+- argp.h: Used for cli argument parsing (some distribution do not include it by default).
 - Linux Perf: Used to read performance counters (currently only on CORTEX A53)
 - [JSON-C](https://github.com/json-c/json-c) >= 0.15: _Optional._ Used to read and parse input JSON configuration files.
 - [imagemagick](https://imagemagick.org/) >= 7.1.0-45 _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.

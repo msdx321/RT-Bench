@@ -19,11 +19,11 @@ build-x86_64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc g++ imagemagick
+    - apk update && apk add make git bash binutils gcc g++ imagemagick argp-standalone
     - make setup
-    - CC=g++ make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
+    - CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     - make clean
-    - make compile-isolbench compile-vision compile-image-filter compile-tacle compile-utils
+    - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
   # save all untracked files but the .o and the .bmp files
   artifacts:
     untracked: true
@@ -36,22 +36,22 @@ build-aarch64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf
+    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf argp-standalone
     - make setup
-    - CC=g++-aarch64-none-eabi make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - CC=g++-aarch64-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     - make clean
-    - CC=gcc-aarch64-none-eabi make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - CC=gcc-aarch64-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 build-riscv:
   stage: build
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf
+    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf argp-standalone
     - make setup
-    - CC=g++-riscv-none-elf make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - CC=g++-riscv-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     - make clean
-    - CC=gcc-riscv-none-elf make compile-isolbench compile-vision compile-image-filter compile-tacle
+    - CC=gcc-riscv-none-elf make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all benchmarks once to make sure there are no problems
 test-x86_64:
@@ -61,9 +61,8 @@ test-x86_64:
   dependencies:
     - build-x86_64
   script:
-    - apk upate && apk add find convert
+    - apk upate && apk add find
     - make setup
-    - bash image-filters/input/init.sh
     - shopt -s nullglob
     - vision_bmarks=(vision/benchmarks/*/)
     - tacle_bmarks=(rt-tacle-bench/bench/sequential/*/)
@@ -74,6 +73,7 @@ test-x86_64:
     - for bmark in $isolbench_bmarks do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1; done
     - for bmark in $image-filters_bmarks do for input in $image-filters_inputs do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
     - for bmark in $vision_bmarks do shopt -s nullglob; vision_inputs=($bmark/data/*/); shopt -u nullglob; for input in $vision_inputs do $input/${bmark##*/} -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
+    - utils/overhead -p 1e-3 -d 1e-3 -t 1 -l 1;
 
 #rebuild the documentation every time there are commits on the main branch
 pages:
