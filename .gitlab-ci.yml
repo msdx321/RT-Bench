@@ -1,10 +1,10 @@
 # The docker image on which the pipelines will be executed
-image: alpine
+image: ubuntu:latest
 
 stages:
   - build
   - test
-  - deploy
+  #- deploy
 
 #Some global variables
 variables:
@@ -19,7 +19,7 @@ build-x86_64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc g++ imagemagick argp-standalone musl-dev
+    - apt install git bash binutils build-essential imagemagick
     - make setup
     #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -36,18 +36,18 @@ build-aarch64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf argp-standalone musl-dev
+    - apt install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
     - make setup
-    #- CC=aarch64-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
-    - CC=aarch64-none-elf-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    - CC=aarch64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 build-riscv:
   stage: build
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf argp-standalone musl-dev
+    - apt install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
     - make setup
     #- CC=riscv-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -61,7 +61,7 @@ test-x86_64:
   dependencies:
     - build-x86_64
   script:
-    - apk upate && apk add find
+    - apt install git bash  binutils build-essential imagemagick
     - make setup
     - shopt -s nullglob
     - vision_bmarks=(vision/benchmarks/*/)
