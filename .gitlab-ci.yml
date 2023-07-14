@@ -51,7 +51,7 @@ build-riscv:
     - make setup
     #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
-    - CC=riscv-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    - CC=riscv64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all benchmarks once to make sure there are no problems
 test-x86_64:
