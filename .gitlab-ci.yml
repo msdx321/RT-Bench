@@ -4,7 +4,7 @@ image: ubuntu:latest
 stages:
   - build
   - test
-  #- deploy
+  - deploy
 
 #Some global variables
 variables:
