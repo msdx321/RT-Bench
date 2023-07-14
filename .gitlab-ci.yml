@@ -19,7 +19,7 @@ build-x86_64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apt install git bash binutils build-essential imagemagick
+    - apt-get update && apt-get upgrade && apt-get install git bash binutils build-essential imagemagick
     - make setup
     #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -36,7 +36,7 @@ build-aarch64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apt install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
+    - apt-get update && apt-get upgrade && apt-get install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
     - make setup
     #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -47,11 +47,11 @@ build-riscv:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apt install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
+    - apt-get update && apt-get upgrade && apt-get install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
     - make setup
-    #- CC=riscv-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
-    - CC=riscv-none-elf-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    - CC=riscv-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all benchmarks once to make sure there are no problems
 test-x86_64:
