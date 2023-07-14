@@ -19,7 +19,7 @@ build-x86_64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils gcc g++ imagemagick argp-standalone
+    - apk update && apk add make git bash binutils gcc g++ imagemagick argp-standalone musl-dev
     - make setup
     #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -36,7 +36,7 @@ build-aarch64:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf argp-standalone
+    - apk update && apk add make git bash binutils imagemagick gcc-aarch64-none-elf g++-aarch64-none-elf argp-standalone musl-dev
     - make setup
     #- CC=aarch64-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -47,7 +47,7 @@ build-riscv:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf argp-standalone
+    - apk update && apk add make git bash binutils imagemagick gcc-riscv-none-elf g++-riscv-none-elf argp-standalone musl-dev
     - make setup
     #- CC=riscv-none-elf-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
