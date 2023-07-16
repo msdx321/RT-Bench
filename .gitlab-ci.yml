@@ -1,5 +1,5 @@
 # The docker image on which the pipelines will be executed
-image: ubuntu:latest
+image: ubuntu:rolling
 
 stages:
   - build
@@ -11,7 +11,7 @@ variables:
   #submodules config
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_FORCE_HTTPS: "true"
-  GIT_SUBMODULE_DEPTH: 1
+  #GIT_SUBMODULE_DEPTH: 1
 
 # build rt-bench and all public submodules for x86_64, aarch64 and riscv. (with both gcc and g++)
 build-x86_64:
@@ -29,14 +29,13 @@ build-x86_64:
     untracked: true
     exclude:
       - "*.o"
-      - "*.bmp"
 
 build-aarch64:
   stage: build
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
+    - apt-get -yq update && apt-get -yq install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
     - make setup
     #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
@@ -47,33 +46,110 @@ build-riscv:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   script:
-    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
+    - apt-get -yq update && apt-get -yq install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
     - make setup
     #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
     - CC=riscv64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
-# run all benchmarks once to make sure there are no problems
-test-x86_64:
+# run all vision benchmarks on x86_64 once to make sure there are no problems
+test-vision:
   stage: test
   rules:
     - if: $CI_COMMIT_BRANCH == "dev/unstable"
   dependencies:
     - build-x86_64
   script:
-    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick
-    - make setup
     - shopt -s nullglob
     - vision_bmarks=(vision/benchmarks/*/)
-    - tacle_bmarks=(rt-tacle-bench/bench/sequential/*/)
     - shopt -u nullglob
+    - |-
+      for bmark in ${vision_bmarks[@]}; do
+        shopt -s nullglob;
+        vision_inputs=($bmark/data/*/);
+        delete=("$bmark/data/fullhd/" "$bmark/data/GroundData/") # avoid fullhd inputs, they take more than 30mins in some benchmarks (muli_ncut)
+        for del in ${delete[@]}; do
+          vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
+        done
+        shopt -u nullglob;
+        for input in ${vision_inputs[@]}; do
+          echo "$(readlink -f $input$(basename $bmark))";
+          if [[ $(basename input) == "vga" ]]; then
+            period=10
+          else
+            period=1e-3
+          fi
+          if [[ $(basename $bmark) == "pca" ]]; then
+            $input$(basename $bmark) -p $period -d $period -t 1 -l 2 -o "output.csv" -b "$input/sat.tst 2000 37 R";
+          else
+            $input$(basename $bmark) -p $period -d $period -t 1 -l 2 -o "output.csv" -b "$input";
+          fi
+          done;
+        done
+# run all isolbench benchmarks on x86_64 once to make sure there are no problems
+test-isolbench:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  dependencies:
+    - build-x86_64
+  script:
     - isolbench_bmarks=($(find IsolBench/ -type f -executable ! -name "*.*"))
-    - image-filters_bmarks=($(find image-filters/ -type f -executable ! -name "*.*"))
-    - for bmark in $tacle_bmarks do $bmark/${bmark##*/} -p 1e-3 -d 1e-3 -t 1 -l 1; done
-    - for bmark in $isolbench_bmarks do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1; done
-    - for bmark in $image-filters_bmarks do for input in $image-filters_inputs do $bmark -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
-    - for bmark in $vision_bmarks do shopt -s nullglob; vision_inputs=($bmark/data/*/); shopt -u nullglob; for input in $vision_inputs do $input/${bmark##*/} -p 1e-3 -d 1e-3 -t 1 -l 1 -b "$input"; done; done
-    - utils/overhead -p 1e-3 -d 1e-3 -t 1 -l 1;
+    - |-
+      for bmark in ${isolbench_bmarks[@]}; do
+        echo $bmark;
+        $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
+      done
+# run all image-filters benchmarks on x86_64 once to make sure there are no problems
+test-image-filters:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  dependencies:
+    - build-x86_64
+  script:
+    - image_bmarks=($(find image-filters/ -type f -executable ! -name "*.*" ))
+    - |-
+      for bmark in ${image_bmarks[@]}; do
+        shopt -s nullglob;
+        inputs=(image-filters/inputs/*.bmp);
+        shopt -u nullglob;
+        for input in ${inputs[@]}; do
+          echo "$bmark $input";
+          if [[ $(basename input) == "fullhd" ]] || [[ $(basename input) == "4k" ]]; then
+            period=10
+          else
+            period=1e-3
+          fi
+          $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv" -b "$input output.bmp";
+        done;
+      done
+# run all taclebench benchmarks on x86_64 once to make sure there are no problems
+test-tacle:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  dependencies:
+    - build-x86_64
+  script:
+    - shopt -s nullglob
+    - tacle_bmarks=(rt-tacle-bench/binaries/*)
+    - shopt -u nullglob
+    - |-
+      for bmark in ${tacle_bmarks[@]}; do
+        echo $bmark;
+        $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
+      done
+
+# run all vision benchmarks on x86_64 once to make sure there are no problems
+test-utils:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev/unstable"
+  dependencies:
+    - build-x86_64
+  script:
+    - echo "utils/overhead"; utils/overhead -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
 
 #rebuild the documentation every time there are commits on the main branch
 pages:
@@ -81,7 +157,7 @@ pages:
   # no artifacts needed for this job
   dependencies: []
   script:
-    - apk update && apk add doxygen graphviz make git bash sed
+    - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
     - DOCS_ONLY=1 make setup
     - make docs
     - mv docs/html/ public/
