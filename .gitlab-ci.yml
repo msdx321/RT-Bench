@@ -11,7 +11,7 @@ variables:
   #submodules config
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_FORCE_HTTPS: "true"
-  GIT_SUBMODULE_DEPTH: 1
+  #GIT_SUBMODULE_DEPTH: 1
 
 # build rt-bench and all public submodules for x86_64, aarch64 and riscv. (with both gcc and g++)
 build-x86_64:
@@ -118,20 +118,22 @@ test-image-filters:
   dependencies:
     - build-x86_64
   script:
+    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick
+    - make setup
+    - make compile-image-filters
     - image_bmarks=($(find image-filters/ -type f -executable ! -name "*.*" ))
     - |-
+      delete=("4k.bmp") # avoid fullhd inputs, they take more than 30mins in some benchmarks (muli_ncut)
+      for del in ${delete[@]}; do
+        vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
+      done
       for bmark in ${image_bmarks[@]}; do
         shopt -s nullglob;
         inputs=(image-filters/inputs/*.bmp);
         shopt -u nullglob;
         for input in ${inputs[@]}; do
           echo "$bmark $input";
-          if [[ $(basename input) == "fullhd" ]] || [[ $(basename input) == "4k" ]]; then
-            period=10
-          else
-            period=1e-3
-          fi
-          $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv" -b "$input output.bmp";
+          $bmark -p 1 -d 1 -t 1 -l 2 -o "output.csv" -b "$input output.bmp";
         done;
       done
 # run all taclebench benchmarks on x86_64 once to make sure there are no problems
