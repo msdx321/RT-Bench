@@ -655,11 +655,6 @@ int main(int argc, char **argv)
 	//benchmark initialization
 	res = periodic_benchmark(&parsed_args);
 
-	// Clean/free buffers
-	for (size_t i = 0; i < parsed_args.args_num; i++)
-		free(parsed_args.args[i]);
-	free(parsed_args.args);
-
 	// return failure if exist
 	if (res < 0) {
 		return EXIT_FAILURE;

@@ -184,6 +184,10 @@ static void stop_benchmark(int status, void *arg)
 	}
 	elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
 	benchmark_teardown(benchmark_param_num, benchmark_params);
+	// Clean/free buffers
+	for (size_t i = 0; i < benchmark_param_num; i++)
+		free(benchmark_params[i]);
+	free(benchmark_params);
 #if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
 	(defined(X86_64) && defined(CORE_I7))
 	res = teardown_pmcs();
