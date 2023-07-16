@@ -11,7 +11,7 @@ variables:
   #submodules config
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_FORCE_HTTPS: "true"
-  #GIT_SUBMODULE_DEPTH: 1
+  GIT_SUBMODULE_DEPTH: 1
 
 # build rt-bench and all public submodules for x86_64, aarch64 and riscv. (with both gcc and g++)
 build-x86_64:
@@ -24,11 +24,21 @@ build-x86_64:
     #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
     #- make clean
     - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-  # save all untracked files but the .o and the .bmp files
+  # save bulid result
   artifacts:
     untracked: true
+    paths: # GitLab does not yet support saving as artifacts untracked files in submodules; their path has to be included manually.
+      - "image-filters/**"
+      - "rt-tacle-bench/binaries/**"
     exclude:
-      - "*.o"
+      - "**.o"
+      - "**.h"
+      - "**.c"
+      - "**.jpg"
+      - "**.dox"
+      - "**.md"
+      - "README"
+      - "LICENSE"
 
 build-aarch64:
   stage: build
