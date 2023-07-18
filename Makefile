@@ -42,7 +42,7 @@ compile-vision:
 	@echo 'Compiling SD-VBS'
 	make -C ${CURDIR}/vision/ compile
 
-compile-image-filters:
+compile-image-filters: setup-image-filters
 	@echo 'Compiling image-filters'
 	make -C ${CURDIR}/image-filters/
 

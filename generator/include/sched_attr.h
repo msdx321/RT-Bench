@@ -8,6 +8,9 @@
  * @copyright (C) 2021 - 2022, Andrea Bastoni <andrea.bastoni@tum.de> and the rt-bench contributors.
  * SPDX-License-Identifier: MIT
  */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <inttypes.h>
 #include <sched.h>
 #include <unistd.h>
@@ -40,12 +43,15 @@ struct rtbench_sched_attr {
 	uint32_t sched_util_max; ///< Utilization hint.
 };
 
-static inline int sched_setattr(pid_t pid, const struct rtbench_sched_attr *attr, unsigned int flags)
+static inline int sched_setattr(pid_t pid,
+				const struct rtbench_sched_attr *attr,
+				unsigned int flags)
 {
 	return syscall(SYS_sched_setattr, pid, attr, flags);
 }
 
-static inline int sched_getattr(pid_t pid, struct rtbench_sched_attr *attr, unsigned int size, unsigned int flags)
+static inline int sched_getattr(pid_t pid, struct rtbench_sched_attr *attr,
+				unsigned int size, unsigned int flags)
 {
 	return syscall(SYS_sched_getattr, pid, attr, size, flags);
 }

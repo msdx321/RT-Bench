@@ -8,12 +8,25 @@
 #include "logging.h"
 #include <string.h>
 #include "sched_attr.h"
-
 #include <inttypes.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <sched.h>
+#include "optional_features.h"
 
-#ifdef JSON_SUPPORT
-#include <json-c/json.h>
+// Warnings for the disabled optional features
+#ifndef SCHED_DEADLINE_SUPPORT
+#warning "Scheudler SCHED_DEADLINE disabled."
+#endif
+#ifndef JSON_SUPPORT
+#warning "JSON parser not available or disable, make sure to have libjson-c >=0.15 and to enable it via FEAT_JSON_SUPPORT."
+#endif
+#if !defined FEAT_PERF_SUPPORT || FEAT_PERF_SUPPORT == OPT_FEAT_DISABLED
+#warning "Perf counters disabled."
+#endif
+#ifndef PRINT_SKIPPED_DEADLINE
+#warning "Skipped deadlines will not be reported."
 #endif
 
 /** @file main.c
@@ -30,6 +43,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#ifdef SCHED_DEADLINE_SUPPORT
 /**
  * @brief Set sched_deadline policy for current thread.
  * @returns 0 on success, < 0 on failure
@@ -52,19 +66,19 @@
  *
  * @note `# ./disparity -d 1 -p 1 -P 500000 -D 400000 -T 300000 -b . .`
  * `5108693043772,5110389822935,5109043819868,5110389822935,350776096,2989.623136457,2990.623058494,2989.829806155,2990.623058494,0.206669698,1,0.207,0.207`
- */
+*/
 static int set_sched_deadline(
-	/* IN: period (see chrt or include/linux/sched/types.h */
+	// IN: period (see chrt or include/linux/sched/types.h
 	uint64_t period,
-	/* IN: deadline (see chrt or include/linux/sched/types.h */
+	// IN: deadline (see chrt or include/linux/sched/types.h
 	uint64_t deadline,
-	/* IN: runtime (see chrt or include/linux/sched/types.h */
+	// IN: runtime (see chrt or include/linux/sched/types.h
 	uint64_t runtime)
 {
 	int ret;
 	struct rtbench_sched_attr attr = { 0 };
 
-	/* Keep compatibility with chrt, at least the period must be != 0 */
+	// Keep compatibility with chrt, at least the period must be != 0
 	if (period == 0) {
 		return -1;
 	}
@@ -83,13 +97,13 @@ static int set_sched_deadline(
 	attr.sched_deadline = deadline;
 	attr.sched_period = period;
 
-	/* NOTE: sched_setattr() is not provided as wrapper in most glibc */
+	// NOTE: sched_setattr() is not provided as wrapper in most glibc
 	ret = sched_setattr(0, &attr, 0);
 	if (ret != 0) {
 		return ret;
 	}
 
-	/* Try to read the info back */
+	// Try to read the info back
 	attr.size = sizeof(attr);
 	attr.sched_policy = 0;
 	attr.sched_runtime = 0;
@@ -103,6 +117,7 @@ static int set_sched_deadline(
 
 	return ret;
 }
+#endif
 
 /**
  * @brief Set sched_fifo as scheduling policy.
@@ -166,16 +181,17 @@ static char field_to_abbrv_mapping(char *arg)
 		return 'm';
 	else if (!strcmp(arg, "tasks-number"))
 		return 't';
-	else if (!strcmp(arg, "sched-deadline"))
-		return 'D';
 	else if (!strcmp(arg, "fifo"))
 		return 'f';
+#ifdef SCHED_DEADLINE_SUPPORT
+	else if (!strcmp(arg, "sched-deadline"))
+		return 'D';
 	else if (!strcmp(arg, "sched-period"))
 		return 'P';
 	else if (!strcmp(arg, "sched-runtime"))
 		return 'T';
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#endif
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	else if (!strcmp(arg, "memory-profiling-enable"))
 		return 'M';
 	else if (!strcmp(arg, "memory-profiling-core"))
@@ -220,8 +236,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	char *output_extension = "";
 	int arg_len = 0;
 	errno = 0;
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	unsigned long long memory_profiling_core_affinity;
 #endif
 
@@ -413,8 +428,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state)
 	case 'P':
 		parsed_args->period = strtoull(arg, NULL, 0);
 		break;
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	case 'M':
 		parsed_args->memory_profiling_enable = strtoul(arg, NULL, 0);
 		break;
@@ -495,16 +509,23 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 		break;
 #endif
 	case ARGP_KEY_END:
-		if (parsed_args->deadline_nsec == 0 &&
-		    parsed_args->deadline_sec == 0)
-			argp_error(state, "Missing required deadline value.");
 		if (parsed_args->period_sec == 0 &&
 		    parsed_args->period_nsec == 0)
-			argp_error(state, "Missing required period value.");
+			elogf(LOG_LEVEL_INFO,
+			      "Using continuous execution model, benchmark will be restarted as soon as it completes.\n");
 		if (parsed_args->parsed_deadline > parsed_args->parsed_period) {
 			argp_error(
 				state,
 				"Deadlines longer than period are not supported.");
+		}
+		if (parsed_args->parsed_deadline == 0 &&
+		    parsed_args->parsed_period > 0) {
+			elogf(LOG_LEVEL_INFO,
+			      "Unspecified deadline value, deadline will be assumed to be same as period.\n");
+			parsed_args->parsed_deadline =
+				parsed_args->parsed_period;
+			parsed_args->deadline_sec = parsed_args->period_sec;
+			parsed_args->deadline_nsec = parsed_args->period_nsec;
 		}
 		if ((parsed_args->prio != 100) &&
 		    ((parsed_args->period > 0) || (parsed_args->deadline > 0) ||
@@ -531,6 +552,7 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 			}
 		}
 
+#ifdef SCHED_DEADLINE_SUPPORT
 		if (parsed_args->period > 0) {
 			res = set_sched_deadline(parsed_args->period,
 						 parsed_args->deadline,
@@ -541,6 +563,8 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 					"Error setting sched-deadline params (are you root?)");
 			}
 		}
+#endif
+
 		break;
 	default:
 		res = interpret_opt(key, arg, state);
@@ -570,9 +594,9 @@ int main(int argc, char **argv)
 #endif
 		{ 0, 0, 0, 0, "Period and deadline options:", 2 },
 		{ "deadline", 'd', "secs", 0,
-		  "The benchmark deadline in seconds. Can be an integer, float or in scientific notation. Required. Must be less or equal than the benchmark period." },
+		  "The benchmark deadline in seconds. Can be an integer, float or in scientific notation. Must be less or equal than the benchmark period." },
 		{ "period", 'p', "secs", 0,
-		  "The benchmark period, in seconds. Can be an integer, float or in scientific notation. Required." },
+		  "The benchmark period, in seconds. `0` when omitted. Can be an integer, float or in scientific notation. If period is `0` then the next job will be executed directly after the current job, in a back-to-back fashion." },
 		{ 0, 0, 0, 0, "Execution options:", 3 },
 		{ "core-affinity", 'c', "core0,core1,...", 0,
 		  "The benchmark core affinity, expressed as a comma separated list. A single core id is also accepted." },
@@ -583,15 +607,16 @@ int main(int argc, char **argv)
 		{ 0, 0, 0, 0, "Scheduling options:\n\n", 4 },
 		{ "fifo", 'f', "0<=prio<=99", 0,
 		  "Set SCHED_FIFO priority with specified priority. Need root." },
+#ifdef SCHED_DEADLINE_SUPPORT
 		{ "sched-runtime", 'T', "ns", 0,
 		  "Set SCHED_DEADLINE runtime. Alternative to --fifo. Need root." },
 		{ "sched-deadline", 'D', "ns", 0,
 		  "Set SCHED_DEADLINE deadline. Alternative to --fifo. Need root." },
 		{ "sched-period", 'P', "ns", 0,
 		  "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least --sched-period has to be specified to set sched_deadline params. If deadline is not specified, deadline is set to period. If runtime is not specified, runtime is set to deadline. NOTE: These parameters are different from --period and --deadline used to control the repetitive execution of the thread. To generate valid execution that are not truncated under hard server reservation, period < sched-period and deadline < sched-deadline." },
+#endif
 		{ 0, 0, 0, 0, "Reporting options:", 5 },
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 		{ "memory-profiling-enable", 'M', "bool", 0,
 		  "Enables runtime memory profiling. Specify '1' to enable or '0' otherwise." },
 		{ "memory-profiling-core", 'C', "core0, core1,...", 0,

@@ -12,30 +12,70 @@ BASE_O=$(OBJECT)/*.o
 
 # Basic compilation flags for rt-bench
 override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
-CXXFLAGS=$(CFLAGS)
+
 # Add linker's flags
 override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--no-as-needed
 
-# Check for specified core architecture family. When specified, set the required flags.
-ifdef CORE
-ifeq ($(CORE),CORTEX_A53)
-override CFLAGS +=-DAARCH64 -DCORTEX_A53
-endif
-ifeq ($(CORE),CORE_I7)
-override CFLAGS +=-DX86_64 -DCORE_I7
-endif
+#optional features 
+
+# #try to include a local config file with all the optional feature variables
+sinclude ../options.mk
+
+# variables to avoid confusion between enabled and disabled features
+MACRO_FEAT_ENABLED=1
+MACRO_FEAT_DISABLED=0
+FEAT_ENABLED=y
+FEAT_DISABLED=n
+
+# deadline scheduler options
+ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_ENABLED))
+ override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
+else
+ ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_DISABLED))
+  override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
+ endif
 endif
 
-# Check if json configuration input is desired.
-ifeq ($(JSON),1)
-override CFLAGS+=-DJSON_SUPPORT
-override LDFLAGS+=-ljson-c
+# perf counters options
+ifeq ($(FEAT_PERF),$(FEAT_ENABLED))
+ override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_ENABLED)
+ ifeq ($(CORE),CORTEX_A53)
+  override CFLAGS +=-D__aarch64__ -DCORTEX_A53
+ endif
+ ifeq ($(CORE),CORE_I7)
+  override CFLAGS +=-D__x86_64__ -DCORE_I7
+ endif
+else
+ ifeq ($(FEAT_PERF),$(FEAT_DISABLED))
+  override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_DISABLED)
+	endif
+endif
+
+# json parser options
+ifeq ($(FEAT_JSON),$(FEAT_ENABLED))
+ override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_ENABLED)
+ override LDFLAGS+=-ljson-c
+else
+ ifeq ($(FEAT_JSON),$(FEAT_DISABLED))
+  override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
+	endif
+endif
+
+# Configure what to do with skipped deadlines
+ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_ENABLED))
+ override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
+else
+ ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_DISABLED))
+ override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
+ endif
 endif
 
 # Check if extended report is desired
 ifeq ($(EXTENDED_REPORT),1)
 override CFLAGS+=-DEXTENDED_REPORT
 endif
+
+CXXFLAGS=$(CFLAGS)
 
 # RT-Bench core recipes
 

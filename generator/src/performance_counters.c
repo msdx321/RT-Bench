@@ -8,35 +8,48 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "performance_counters.h"
 #include <stdio.h>
 #include <linux/perf_event.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include "performance_counters.h"
 #include "logging.h"
 
 /// System-call number to open performance counter event.
-#ifdef AARCH64
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+#if defined __aarch64__
 #define __NR_perf_event_open 241
-#elif X86_64
+#elif __x86_64__
 #define __NR_perf_event_open 298
-//#elif X86_64
+//#elif __x86_64__
 //#define __NR_perf_event_open 336
+#else
+#error "Unsupported architecture for perf counters"
+#endif
 #endif
 
 /// Core model specific performance counter event IDs
-#ifdef CORTEX_A53
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+#if defined CORTEX_A53
 #define L1_REFERENCES 0x04
 #define L1_REFILLS 0x03
 #define L2_REFERENCES 0x16
 #define L2_REFILLS 0x17
 #define INST_RETIRED 0x08
 #define CPU_CYCLES 0x11
-#elif CORE_I7
-#define L1_REFERENCES (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
-#define L1_REFILLS (PERF_COUNT_HW_CACHE_L1D)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
-#define L2_REFERENCES (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16)
-#define L2_REFILLS (PERF_COUNT_HW_CACHE_LL)|(PERF_COUNT_HW_CACHE_OP_READ<<8)|(PERF_COUNT_HW_CACHE_RESULT_MISS<<16)
+#elif defined CORE_I7
+#define L1_REFERENCES                                                          \
+	(PERF_COUNT_HW_CACHE_L1D) | (PERF_COUNT_HW_CACHE_OP_READ << 8) |       \
+		(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16)
+#define L1_REFILLS                                                             \
+	(PERF_COUNT_HW_CACHE_L1D) | (PERF_COUNT_HW_CACHE_OP_READ << 8) |       \
+		(PERF_COUNT_HW_CACHE_RESULT_MISS << 16)
+#define L2_REFERENCES                                                          \
+	(PERF_COUNT_HW_CACHE_LL) | (PERF_COUNT_HW_CACHE_OP_READ << 8) |        \
+		(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16)
+#define L2_REFILLS                                                             \
+	(PERF_COUNT_HW_CACHE_LL) | (PERF_COUNT_HW_CACHE_OP_READ << 8) |        \
+		(PERF_COUNT_HW_CACHE_RESULT_MISS << 16)
 #define INST_RETIRED PERF_COUNT_HW_INSTRUCTIONS
 #define CPU_CYCLES PERF_COUNT_HW_REF_CPU_CYCLES
 #else
@@ -45,6 +58,7 @@
 #define L2_REFERENCES 0x0
 #define L2_REFILLS 0x0
 #define INST_RETIRED 0x0
+#endif
 #endif
 
 /// Indicates which thread/process performance counters to follow.
@@ -79,7 +93,7 @@ struct read_format {
 /// File descriptor for L1-D references (also, group-fd head)
 static int l1_references_fd;
 
-/// File descriptor for L1-D missess
+/// File descriptor for L1-D misses
 static int l1_refills_fd;
 
 /// File descriptor for L2 references
@@ -94,7 +108,7 @@ static int inst_retired_fd;
 /// File descriptor for clock cycles count
 static int clock_count_fd;
 
-#if defined(CORTEX_A53) || defined(CORE_I7)
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 /**
  * @brief Open a file descriptor for the performance counter specified.
  * @param[in] pmc_type Specify the event type.
@@ -102,7 +116,8 @@ static int clock_count_fd;
  * @param[in] group_fd The file descriptor group to which the performance counter belongs.
  * @return The file directory opened, -1 on failures.
  */
-static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config, int group_fd)
+static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config,
+		       int group_fd)
 {
 	static struct perf_event_attr attr;
 	attr.type = pmc_type;
@@ -129,44 +144,58 @@ static int open_pmc_fd(unsigned int pmc_type, unsigned int pmc_config, int group
 int setup_pmcs(void)
 {
 	elogf(LOG_LEVEL_TRACE, "Opening performance counters fd\n");
-#ifdef CORTEX_A53
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+#if defined CORTEX_A53
 	l1_references_fd = open_pmc_fd(PERF_TYPE_RAW, L1_REFERENCES, -1);
 	if (l1_references_fd == -1)
 		return -1;
-	l1_refills_fd = open_pmc_fd(PERF_TYPE_RAW, L1_REFILLS, l1_references_fd);
+	l1_refills_fd =
+		open_pmc_fd(PERF_TYPE_RAW, L1_REFILLS, l1_references_fd);
 	if (l1_refills_fd == -1)
 		return -1;
-	l2_references_fd = open_pmc_fd(PERF_TYPE_RAW, L2_REFERENCES, l1_references_fd);
+	l2_references_fd =
+		open_pmc_fd(PERF_TYPE_RAW, L2_REFERENCES, l1_references_fd);
 	if (l2_references_fd == -1)
 		return -1;
-	l2_refills_fd = open_pmc_fd(PERF_TYPE_RAW, L2_REFILLS, l1_references_fd);
+	l2_refills_fd =
+		open_pmc_fd(PERF_TYPE_RAW, L2_REFILLS, l1_references_fd);
 	if (l2_refills_fd == -1)
 		return -1;
-	inst_retired_fd = open_pmc_fd(PERF_TYPE_RAW, INST_RETIRED, l1_references_fd);
+	inst_retired_fd =
+		open_pmc_fd(PERF_TYPE_RAW, INST_RETIRED, l1_references_fd);
 	if (inst_retired_fd == -1)
 		return -1;
-	clock_count_fd = open_pmc_fd(PERF_TYPE_RAW, CPU_CYCLES, l1_references_fd);
-        if (clock_count_fd == -1)
-                return -1;
-#elif CORE_I7
+	clock_count_fd =
+		open_pmc_fd(PERF_TYPE_RAW, CPU_CYCLES, l1_references_fd);
+	if (clock_count_fd == -1)
+		return -1;
+#elif defined CORE_I7
 	l1_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFERENCES, -1);
-        if (l1_references_fd == -1)
-                return -1;
-        l1_refills_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFILLS, l1_references_fd);
-        if (l1_refills_fd == -1)
-                return -1;
-        l2_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFERENCES, l1_references_fd);
-        if (l2_references_fd == -1)
-                return -1;
-        l2_refills_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFILLS, l1_references_fd);
-        if (l2_refills_fd == -1)
-                return -1;
-        inst_retired_fd = open_pmc_fd(PERF_TYPE_HARDWARE, INST_RETIRED, l1_references_fd);
-        if (inst_retired_fd == -1)
-                return -1;
-	clock_count_fd = open_pmc_fd(PERF_TYPE_HARDWARE, CPU_CYCLES, l1_references_fd);
-        if (clock_count_fd == -1)
-                return -1;
+	if (l1_references_fd == -1)
+		return -1;
+	l1_refills_fd =
+		open_pmc_fd(PERF_TYPE_HW_CACHE, L1_REFILLS, l1_references_fd);
+	if (l1_refills_fd == -1)
+		return -1;
+	l2_references_fd = open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFERENCES,
+				       l1_references_fd);
+	if (l2_references_fd == -1)
+		return -1;
+	l2_refills_fd =
+		open_pmc_fd(PERF_TYPE_HW_CACHE, L2_REFILLS, l1_references_fd);
+	if (l2_refills_fd == -1)
+		return -1;
+	inst_retired_fd =
+		open_pmc_fd(PERF_TYPE_HARDWARE, INST_RETIRED, l1_references_fd);
+	if (inst_retired_fd == -1)
+		return -1;
+	clock_count_fd =
+		open_pmc_fd(PERF_TYPE_HARDWARE, CPU_CYCLES, l1_references_fd);
+	if (clock_count_fd == -1)
+		return -1;
+#else
+#error "No performance counter support for this platform"
+#endif
 #endif
 	return l1_references_fd;
 }
@@ -208,8 +237,8 @@ int teardown_pmcs(void)
 	if (ret == -1)
 		return ret;
 	ret = close_pmc_fd(clock_count_fd);
-        if (ret == -1)
-                return ret;
+	if (ret == -1)
+		return ret;
 	return 0;
 }
 

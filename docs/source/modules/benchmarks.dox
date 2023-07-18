@@ -15,7 +15,7 @@ These arguments and options are described below and in the benchmark help messag
 
 ### Configuration input
 
-Has to be explicitly enabled, see [here](#json_support) for instructions.
+May be not available, see [here](#json_support) for details.
 
 - `-g`,`--configuration-file`: Specify the JSON file describing the configuration to use. Following options complement or override the JSON description. Conversely, options specified before are complemented or overwritten.
 
@@ -40,9 +40,10 @@ The configuration defined in a JSON file can be complemented or partially overri
 
 - `-d`, `--deadline=secs`: The benchmark deadline in seconds. Can be an integer,
   float or in scientific notation. Must be less or equal than the benchmark
-  period.__Required__.
+  period.
 - `-p`, `--period=secs`: The benchmark period, in seconds. Can be an integer,
-  float or in scientific notation.__Required__.
+  float or in scientific notation. `0` if omitted. If period is `0` then the next job will be
+  executed directly after the current job, in a back-to-back fashion.
 
 ### Execution options
 
@@ -80,6 +81,8 @@ The configuration defined in a JSON file can be complemented or partially overri
   used to control the repetitive execution of the thread.
   To generate valid execution that are not truncated under hard server
   reservation ensure that period < sched-period and deadline < sched-deadline.
+
+ __NOTE:__ `SCHED_DEADLINE` options may have to be disabled or not available, see [here](#sched_deadline_support) for details.
 
 ### Reporting options
 

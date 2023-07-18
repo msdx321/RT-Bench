@@ -24,7 +24,9 @@
 /**************************************************************************
  * Included Files
  **************************************************************************/
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE /* See feature_test_macros(7) */
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>

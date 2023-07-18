@@ -11,6 +11,7 @@
  */
 
 #include <stdint.h>
+#include "optional_features.h"
 
 /** @brief Reads the processor timestamp counter as an unsigned long long.
  * @return Processor timestamp counter value (in clock cycles) on success, 0 on

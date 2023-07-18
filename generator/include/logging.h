@@ -17,6 +17,7 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+#include "optional_features.h"
 #include <stdio.h>
 
 /// Deadline missed status.

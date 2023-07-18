@@ -18,8 +18,6 @@
 #include "get_cpu_timestamp.h"
 #include "logging.h"
 #include "memory_watcher.h"
-#include <bits/types/siginfo_t.h>
-#include <bits/types/struct_itimerspec.h>
 #include <errno.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -43,9 +41,6 @@
 
 /// Default output path and filename for performance counter runtime monitoring.
 #define DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH "./perf.csv"
-
-/// Indicates whether to print skipped deadelines with 0s
-#define PRINT_SKIPPED_DEADLINE 0
 
 /// Number of parameters passed to the benchmark.
 static int benchmark_param_num = 0;
@@ -72,8 +67,8 @@ static struct itimerspec deadline_timing;
 /// The file pointer to the timing output file.
 static FILE *filep = NULL;
 
-#if defined(CORTEX_A53) || defined(CORE_I7)
-/// The file pointer to the pruntime performance counter monitoring file.
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+/// The file pointer to the runtime performance counter monitoring file.
 static FILE *filep_sampler = NULL;
 #endif
 
@@ -143,8 +138,7 @@ static void stop_benchmark(int status, void *arg)
 			perror("Error during output file close");
 		}
 	}
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	if (arg != NULL) {
 		unsigned *memory_profiling_enable = (unsigned *)arg;
 		if (*memory_profiling_enable) {
@@ -188,8 +182,7 @@ static void stop_benchmark(int status, void *arg)
 	for (size_t i = 0; i < benchmark_param_num; i++)
 		free(benchmark_params[i]);
 	free(benchmark_params);
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	res = teardown_pmcs();
 	if (res < 0) {
 		perror("Error: performance counters file descriptors could not be closed\n");
@@ -268,7 +261,6 @@ static void period_handler(int signo, siginfo_t *info, void *context)
 	int res;
 	unsigned long long period_end_timestamp_clocks = get_rdtsc();
 	long double period_end_timestamp = get_timestamp();
-	//
 	if (job_period_end_timestamp_clocks == 0) {
 		job_period_end_timestamp_clocks = period_end_timestamp_clocks;
 	}
@@ -361,11 +353,14 @@ static void period_handler(int signo, siginfo_t *info, void *context)
 #ifdef EXTENDED_REPORT
 		extra_measurement = 0.0f;
 #endif
-		// we unlock the semaphore to allow the next job to start
-		res = sem_post(&period_sem);
-		if (res < 0) {
-			perror("Cannot post on period semaphore");
-			exit(EXIT_FAILURE);
+		// if signo is <0 where in the continuous execution mode, so we don't have to unlock the semaphore.
+		if (signo >= 0) {
+			// we unlock the semaphore to allow the next job to start
+			res = sem_post(&period_sem);
+			if (res < 0) {
+				perror("Cannot post on period semaphore");
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 }
@@ -493,8 +488,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 	// status variables
 	int res;
 
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	// Initialize the performance sampler thread
 	if (exec_opts->memory_profiling_enable) {
 		elogf(LOG_LEVEL_TRACE,
@@ -541,14 +535,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 	}
 #endif
 	elogf(LOG_LEVEL_TRACE, "Starting setup of execution environment\n");
-	// we initialize the period semaphore to 0, to wait for the period end.
-	res = sem_init(&period_sem, 1, 0);
-	if (res < 0) {
-		perror("Error during deadline semaphore initialization");
-		return res;
-	}
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	res = on_exit(stop_benchmark,
 		      (void *)&(exec_opts->memory_profiling_enable));
 #else
@@ -584,8 +571,7 @@ int periodic_benchmark(struct execution_options *exec_opts)
 		memset(log_header, 0, 1024);
 		strcat(log_header,
 		       "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),period_start(seconds),period_end(seconds),job_end(seconds),job_deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_utilization,job_density");
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 		strcat(log_header,
 		       ",job_l1_references,job_l1_misses,job_l1_miss_ratio(%%),job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),instructions_retired,cpu_clock_count");
 #endif
@@ -611,92 +597,113 @@ int periodic_benchmark(struct execution_options *exec_opts)
 	}
 	elogf(LOG_LEVEL_TRACE, "Job environment initialization complete\n");
 
-	elogf(LOG_LEVEL_TRACE, "Starting signal handlers setup...\n");
-	res = setup_signal(SIGNAL_DEADLINE, deadline_handler,
-			   job_masked_signals, job_masked_signals_num);
-	if (res < 0) {
-		return res;
-	}
-	elogf(LOG_LEVEL_TRACE, "Deadline handler setup completed.\n");
-	res = setup_signal(SIGNAL_END_PERIOD, period_handler,
-			   job_masked_signals, job_masked_signals_num);
-	if (res < 0) {
-		return res;
-	}
-	elogf(LOG_LEVEL_TRACE, "Period handler setup completed.\n");
 	res = setup_signal(SIGINT, quit_handler, quit_masked_signals,
 			   quit_masked_signals_num);
 	if (res < 0) {
 		return res;
 	}
 	elogf(LOG_LEVEL_TRACE, "Quit handler setup completed.\n");
-	elogf(LOG_LEVEL_TRACE, "Signal handlers installed.\n");
 
 	if (exec_opts->bytes_to_preallocate > 0) {
 		start_memory_watcher(exec_opts->bytes_to_preallocate);
 	}
 
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 	res = setup_pmcs();
 	if (res < 0) {
 		return res;
 	}
 #endif
-
-	elogf(LOG_LEVEL_TRACE, "Configuring timers...\n");
-	// the deadline timer is created only if deadline and period differ
-	if (exec_opts->parsed_deadline != exec_opts->parsed_period) {
-		deadline_timer_status = DEADLINE_TIMER_IN_USE;
-		// the deadline timer is setup with 0 interval since it will be armed once a
-		// period starts
-		res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0);
+	if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+		// we initialize the period semaphore to 0, to wait for the period end.
+		res = sem_init(&period_sem, 1, 0);
+		if (res < 0) {
+			perror("Error during deadline semaphore initialization");
+			return res;
+		}
+		elogf(LOG_LEVEL_TRACE,
+		      "Starting timing signal handlers setup...\n");
+		res = setup_signal(SIGNAL_DEADLINE, deadline_handler,
+				   job_masked_signals, job_masked_signals_num);
 		if (res < 0) {
 			return res;
 		}
-		// we setup the itimerspec struct to be used by the period handler
-		deadline_timing.it_value.tv_nsec = exec_opts->deadline_nsec;
-		deadline_timing.it_value.tv_sec = exec_opts->deadline_sec;
-		deadline_timing.it_interval.tv_sec = 0;
-		deadline_timing.it_interval.tv_nsec = 0;
-		elogf(LOG_LEVEL_TRACE, "Deadline timer setup complete\n");
-	} else {
-		deadline_timer_status = !DEADLINE_TIMER_IN_USE;
-	}
+		elogf(LOG_LEVEL_TRACE, "Deadline handler setup completed.\n");
+		res = setup_signal(SIGNAL_END_PERIOD, period_handler,
+				   job_masked_signals, job_masked_signals_num);
+		if (res < 0) {
+			return res;
+		}
+		elogf(LOG_LEVEL_TRACE, "Period handler setup completed.\n");
+		elogf(LOG_LEVEL_TRACE, "Timing signal handlers installed.\n");
+		elogf(LOG_LEVEL_TRACE, "Configuring timers...\n");
+		// the deadline timer is created only if deadline and period differ
+		if (exec_opts->parsed_deadline != exec_opts->parsed_period) {
+			deadline_timer_status = DEADLINE_TIMER_IN_USE;
+			// the deadline timer is setup with 0 interval since it will be armed once a
+			// period starts
+			res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0,
+					  0);
+			if (res < 0) {
+				return res;
+			}
+			// we setup the itimerspec struct to be used by the period handler
+			deadline_timing.it_value.tv_nsec =
+				exec_opts->deadline_nsec;
+			deadline_timing.it_value.tv_sec =
+				exec_opts->deadline_sec;
+			deadline_timing.it_interval.tv_sec = 0;
+			deadline_timing.it_interval.tv_nsec = 0;
+			elogf(LOG_LEVEL_TRACE,
+			      "Deadline timer setup complete\n");
+		} else {
+			deadline_timer_status = !DEADLINE_TIMER_IN_USE;
+		}
 
-	res = setup_timer(&period_timer, SIGNAL_END_PERIOD,
-			  exec_opts->period_sec, exec_opts->period_nsec);
-	if (res < 0) {
-		return res;
+		res = setup_timer(&period_timer, SIGNAL_END_PERIOD,
+				  exec_opts->period_sec,
+				  exec_opts->period_nsec);
+		if (res < 0) {
+			return res;
+		}
+		elogf(LOG_LEVEL_TRACE, "Period timer setup complete\n");
+		elogf(LOG_LEVEL_TRACE, "Timers setup complete\n");
 	}
-	elogf(LOG_LEVEL_TRACE, "Period timer setup complete\n");
-	elogf(LOG_LEVEL_TRACE, "Timers setup complete\n");
 	// since timer will start shortly there are no previous jobs that are
 	// executing we get the timestamp of the first period
 	// This cycle will proceed infinitely if the user has not set a specific number of benchmarks to run or it will just terminate after having launched the specified amount of benchmarks.
 	while (tasks_launched < exec_opts->tasks_to_launch ||
 	       exec_opts->tasks_to_launch == 0) {
 		// we wait for the period to finish
-		do {
-			res = sem_wait(&period_sem);
+		if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+			do {
+				res = sem_wait(&period_sem);
 
-		} while (res < 0 && errno == EINTR);
+			} while ((exec_opts->period_nsec > 0 ||
+				  exec_opts->period_nsec > 0) ||
+				 (res < 0 && errno == EINTR));
 
-		if (res < 0 && errno != EINTR) {
-			perror("Error during period semaphore wait");
-			return res;
+			if (res < 0 && errno != EINTR) {
+				perror("Error during period semaphore wait");
+				return res;
+			}
+		} //the very first execution might need to explicitly sample the start
+		//timestamp
+		if (job_period_start_timestamp_clocks == 0) {
+			job_period_start_timestamp_clocks = get_rdtsc();
+		}
+		if (job_period_start_timestamp == 0) {
+			job_period_start_timestamp = get_timestamp();
 		}
 // we start executing the job
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 		if (exec_opts->memory_profiling_enable) {
 			start_sampling();
 		}
 		job_perf_counters_start = pmcs_get_value();
 #endif
 		benchmark_execution(benchmark_param_num, benchmark_params);
-#if (defined(AARCH64) && defined(CORTEX_A53)) ||                               \
-	(defined(X86_64) && defined(CORE_I7))
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
 		job_perf_counters_end = pmcs_get_value();
 		if (exec_opts->memory_profiling_enable) {
 			stop_sampling();
@@ -709,10 +716,18 @@ int periodic_benchmark(struct execution_options *exec_opts)
 #endif
 		// we update the number of launched benchmarks
 		tasks_launched++;
+		//if the period is 0, reporting happens as soon as the current job finished execution.
+		if (exec_opts->period_nsec == 0 && exec_opts->period_sec == 0) {
+			// since we are not using the timer we manually set the next period start timestamp.
+			// in the continuous execution model the start of a new period coincides with the end of the job.
+			period_handler(-1, NULL, NULL);
+		}
 	}
 	// we wait for the last period to finish before exiting.
-	do {
-		res = sem_wait(&period_sem);
-	} while (res < 0 && errno == EINTR);
+	if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+		do {
+			res = sem_wait(&period_sem);
+		} while (res < 0 && errno == EINTR);
+	}
 	return EXIT_SUCCESS;
 }

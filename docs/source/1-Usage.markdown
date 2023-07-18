@@ -97,6 +97,7 @@ Available groups are:
 - `group-vision`: Computer vision benchmarks.
   Includes:
   - [SD-VBS](@ref #SD-VBS)
+  - [Image Filers](@ref #image-filters)
 
 To use these grouped targets it is enough to prepend `setup-`, `clean-` or `compile-` before the group name.
 
@@ -111,7 +112,7 @@ while for the benchmark-specific options and argument the user should refer to t
 To execute the benchmark is sufficient to give the executable the required arguments via CLI.
 The only parameters required to run a benchmark are period and deadline.
 
-As an example the following commands will be used to run the [disparity](@ref #disparity) benchmark from the [San Diego Vision Benchamrks](@ref #SD-VBS) suite:
+As an example the following commands will be used to run the [disparity](@ref #disparity) benchmark from the [San Diego Vision Benchmarks](@ref #SD-VBS) suite:
 
 - `# disparity -p 1 -d 0.5 -t 2 -c 0 -f 99 -m 1M -l 3 -b .`: Run the benchmark
   with 1 second period, 0.5 seconds deadline, execute only two jobs, pin the
@@ -134,7 +135,7 @@ As an example the following commands will be used to run the [disparity](@ref #d
   dynamic memory allocation to 10MB during execution, with log level 2 (csv output)
   on the file called `output.csv` and take the input images from the current folder.
 - `# disparity -p 1 -d 0.3 -c 0 -f 99 -m 10M -o output.csv -b .`: Run the benchmark
-  with 1 second period, 0.3 seconds deadline, keep executin jobs untile a `SIGINT` is received, pin the
+  with 1 second period, 0.3 seconds deadline, keep executing jobs until a `SIGINT` is received, pin the
   process on core 0, use the FIFO scheduler with priority 99, constrain the
   dynamic memory allocation to 10MB during execution, with log level 3 (csv output on terminal)
   on the file called `output.csv` (ignored in this case) and take the input images from the current folder.

@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include "logging.h"
+#include "memory_watcher.h"
 
 ///Enum used to determine the memory watcher states
 enum memory_watcher_states {

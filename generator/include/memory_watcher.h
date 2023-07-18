@@ -9,7 +9,8 @@
 #ifndef MEMORY_WATCHER_H
 #define MEMORY_WATCHER_H
 
-#include<stdlib.h>
+#include "optional_features.h"
+#include <stdlib.h>
 
 /** @brief Initializes the memory watcher and preallocates the necessary memory.
  * @param[in] bytes_to_preallocate The amount of memory that must be preallocated.

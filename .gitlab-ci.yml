@@ -70,6 +70,7 @@ test-vision:
   dependencies:
     - build-x86_64
   script:
+    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-vision # TODO: needed for local gitlab-runner. Remove/comment after testing locally
     - shopt -s nullglob
     - vision_bmarks=(vision/benchmarks/*/)
     - shopt -u nullglob
@@ -77,22 +78,17 @@ test-vision:
       for bmark in ${vision_bmarks[@]}; do
         shopt -s nullglob;
         vision_inputs=($bmark/data/*/);
-        delete=("$bmark/data/fullhd/" "$bmark/data/GroundData/") # avoid fullhd inputs, they take more than 30mins in some benchmarks (muli_ncut)
+        delete=("$bmark/data/fullhd/" "$bmark/data/GroundData/")
         for del in ${delete[@]}; do
           vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
         done
         shopt -u nullglob;
         for input in ${vision_inputs[@]}; do
           echo "$(readlink -f $input$(basename $bmark))";
-          if [[ $(basename input) == "vga" ]]; then
-            period=10
-          else
-            period=1e-3
-          fi
           if [[ $(basename $bmark) == "pca" ]]; then
-            $input$(basename $bmark) -p $period -d $period -t 1 -l 2 -o "output.csv" -b "$input/sat.tst 2000 37 R";
+            $input$(basename $bmark) -t 1 -l 2 -o "output.csv" -b "$input/sat.tst 2000 37 R";
           else
-            $input$(basename $bmark) -p $period -d $period -t 1 -l 2 -o "output.csv" -b "$input";
+            $input$(basename $bmark) -t 1 -l 1 -b "$input";
           fi
           done;
         done
@@ -104,11 +100,12 @@ test-isolbench:
   dependencies:
     - build-x86_64
   script:
+    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-isolbench # TODO: needed for local gitlab-runner. Remove/comment after testing locally
     - isolbench_bmarks=($(find IsolBench/ -type f -executable ! -name "*.*"))
     - |-
       for bmark in ${isolbench_bmarks[@]}; do
         echo $bmark;
-        $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
+        $bmark -t 1 -l 4;
       done
 # run all image-filters benchmarks on x86_64 once to make sure there are no problems
 test-image-filters:
@@ -118,22 +115,16 @@ test-image-filters:
   dependencies:
     - build-x86_64
   script:
-    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick
-    - make setup
-    - make compile-image-filters
+    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick &&  make setup && make compile-image-filters # TODO: needed for local gitlab-runner. Remove/comment after testing locally
     - image_bmarks=($(find image-filters/ -type f -executable ! -name "*.*" ))
     - |-
-      delete=("4k.bmp") # avoid fullhd inputs, they take more than 30mins in some benchmarks (muli_ncut)
-      for del in ${delete[@]}; do
-        vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
-      done
       for bmark in ${image_bmarks[@]}; do
         shopt -s nullglob;
         inputs=(image-filters/inputs/*.bmp);
         shopt -u nullglob;
         for input in ${inputs[@]}; do
           echo "$bmark $input";
-          $bmark -p 1 -d 1 -t 1 -l 2 -o "output.csv" -b "$input output.bmp";
+          $bmark -t 1 -l 1 -b "$input output.bmp";
         done;
       done
 # run all taclebench benchmarks on x86_64 once to make sure there are no problems
@@ -144,13 +135,19 @@ test-tacle:
   dependencies:
     - build-x86_64
   script:
+    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick &&  make setup && make compile-tacle # TODO: needed for local gitlab-runner. Remove/comment after testing locally
     - shopt -s nullglob
     - tacle_bmarks=(rt-tacle-bench/binaries/*)
+    - delete=(rt-tacle-bench/binaries/minver) # exclude minver, it usually work locally but crashes in a docker enviroment
+    - |-
+      for del in ${delete[@]}; do
+        tacle_bmarks=("${tacle_bmarks[@]/$del}") #Quotes when working with strings
+      done
     - shopt -u nullglob
     - |-
       for bmark in ${tacle_bmarks[@]}; do
         echo $bmark;
-        $bmark -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
+        $bmark -t 1 -l 3;
       done
 
 # run all vision benchmarks on x86_64 once to make sure there are no problems
@@ -161,7 +158,8 @@ test-utils:
   dependencies:
     - build-x86_64
   script:
-    - echo "utils/overhead"; utils/overhead -p 1e-3 -d 1e-3 -t 1 -l 2 -o "output.csv";
+    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-utils # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+    - echo "utils/overhead"; utils/overhead -p 1 -d 1 -t 1 -l 2 -o "output.csv";
 
 #rebuild the documentation every time there are commits on the main branch
 pages:
