@@ -2,7 +2,7 @@
 CC ?= gcc
 
 # Paths
-CUR_DIR=$(dir $(lastword $(MAKEFILE_LIST)))
+CUR_DIR=$(strip $(dir $(abspath $(filter %rtbench.mk,$(MAKEFILE_LIST)))))
 OBJECT=$(CUR_DIR)/object/$(notdir $(CC))
 INCLUDE=$(CUR_DIR)/include
 SOURCE=$(CUR_DIR)/src
