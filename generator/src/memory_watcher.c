@@ -1,173 +1,358 @@
 /** @file memory_watcher.c
  * @ingroup generator
- * @brief Implementation of a memory watcher, which will crash the program if it detects and heap extension.
+ * @brief Implementation of a memory watcher, which will crash the program if it
+ * detects and heap extension.
  * @author Mattia Nicolella
  *
  * **Dependencies**:
  * - Glibc.
  *
- * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
- * SPDX-License-Identifier: MIT
+ * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench
+ * contributors. SPDX-License-Identifier: MIT
  */
-#include <malloc.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include "logging.h"
 #include "memory_watcher.h"
+#include "logging.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <malloc.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
-///Enum used to determine the memory watcher states
+/// Enum used to determine the memory watcher states
 enum memory_watcher_states {
-	MEMORY_WATCHER_DISABLED = 0, ///< The memory watcher is not enabled.
-	MEMORY_WATCHER_ENABLED ///< The memory watcher is enabled.
+  MEMORY_WATCHER_DISABLED = 0, ///< The memory watcher is not enabled.
+  MEMORY_WATCHER_ENABLED,      ///< The memory watcher is enabled.
+  MEMORY_WATCHER_FIXED_HEAP,   ///< The memory watcher is enabled and the heap
+                               ///< location is fixed.
 };
 
-/** The status of the memory watcher.
- * Possible values are defined by `::memory_watcher_states`.
- */
-static enum memory_watcher_states memory_watcher_status =
-	MEMORY_WATCHER_DISABLED;
+static struct memory_watcher_config {
 
-/** @brief The initial value of the program break.
- * This value is used to determine if the program heap was expanded after an allocation.
- */
-static const void *initial_program_break = NULL;
+  /** The status of the memory watcher.
+   * Possible values are defined by `::memory_watcher_states`.
+   */
+  enum memory_watcher_states status;
+  void
+      /** @brief The initial value of the program break.
+       * This value is used to determine if the program heap was expanded
+       * after an allocation.
+       */
+      *initial_program_break,
+      /** The current program break when the memory
+       * watcher is enabled and the heap location
+       *is fixed. */
+      *fixed_heap_program_break,
+      /// The configured heap start. `NULL` if not configured.
+      *heap_start,
+      /** The address that is the result of mmapping
+       * `/dev/mem` with the `heap_start` offset and
+       * `heap_size` length. This will be the address used
+       * for allocations. */
+      *devmem_mapping;
+  int devmem_fp;    ///< The file pointer to the `/dev/mem` file.
+  size_t heap_size; ///< The configured heap size. `0` if not configured.
+} memory_watcher_config = {
+    .status = MEMORY_WATCHER_DISABLED,
+    .initial_program_break = NULL,
+    .fixed_heap_program_break = NULL,
+    .heap_start = NULL,
+    .heap_size = 0,
+    .devmem_mapping = NULL,
+    .devmem_fp = -1,
+};
 
 /**
  * Memory preallocation is done via `mallopt()`, using `M_TOP_PAD`.
- * In addition, we need to avoid having `malloc()` use `mmap()`, so `mallopt()` is used to set `M_MMAP_MAX` to `0`.
- * Then, a dummy allocation (a `malloc()` and a `free()`) is performed, to have the requested memory preallocated.
+ * In addition, we need to avoid having `malloc()` use `mmap()`, so `mallopt()`
+ * is used to set `M_MMAP_MAX` to `0`. Then, a dummy allocation (a `malloc()`
+ * and a `free()`) is performed, to have the requested memory preallocated.
  *
- * To enable the memory watcher, `::memory_watcher_status` is set to `::MEMORY_WATCHER_ENABLED` and
- * the initial value of the program break is stored in `::initial_program_break` via `sbrk(0)`.
- * As a side effect from the memory watcher start, `mmap()` will be disabled.
+ * To enable the memory watcher, `::memory_watcher_status` is set to
+ * `::MEMORY_WATCHER_ENABLED` and the initial value of the program break is
+ * stored in `::initial_program_break` via `sbrk(0)`. As a side effect from the
+ * memory watcher start, `mmap()` will be disabled.
+ *
+ * If `heap_start` is not `NULL`, the memory watcher will also use a cutsom
+ * `sbrk()` and `malloc()` perfom allocations starting from that address. In
+ * this configuration the default preallocation strategy is used.
  */
-void start_memory_watcher(size_t bytes_to_preallocate)
-{
-	int res;
-	void *dummy_alloc = NULL;
-	if (bytes_to_preallocate > 0) {
-		if (memory_watcher_status == MEMORY_WATCHER_DISABLED) {
-			elogf(LOG_LEVEL_TRACE,
-			      "Starting  memory watcher, bytes to preallocate: %zu.\n",
-			      bytes_to_preallocate);
-			//preallocate the requested memory
-			res = mallopt(M_TOP_PAD, bytes_to_preallocate);
-			if (res == 0) {
-				elogf(LOG_LEVEL_ERR,
-				      "Cannot preallocate %zu bytes.\n",
-				      bytes_to_preallocate);
-				exit(-1);
-			}
-			//disable mmap usage
-			res = mallopt(M_MMAP_MAX, 0);
-			if (res == 0) {
-				elogf(LOG_LEVEL_ERR,
-				      "Cannot disable mmap based allocation.\n");
-				exit(-1);
-			}
-			// a dummy allocation to have malloc preallocate the requested amount of memory.
-			dummy_alloc = malloc(bytes_to_preallocate);
-			if (dummy_alloc == NULL) {
-				elogf(LOG_LEVEL_ERR,
-				      "Cannot allocate dynamic memory, aborting.\n");
-				exit(-1);
-			}
-			free(dummy_alloc);
-			//we get the value of the program break after the preallocation.
-			initial_program_break = sbrk(0);
-			if (initial_program_break == (void *)-1) {
-				perror("Cannot find the program break during memory watcher setup.");
-				exit(-1);
-			}
-			memory_watcher_status = MEMORY_WATCHER_ENABLED;
-			elogf(LOG_LEVEL_TRACE,
-			      "Memory watcher enabled, initial program break:%p.\n",
-			      initial_program_break);
-		} else {
-			elogf(LOG_LEVEL_ERR,
-			      "Attempt to configure the memory watcher when it's already started.\n");
-			exit(-1);
-		}
-	}
+void start_memory_watcher(size_t heap_size, void *heap_start) {
+  int res;
+  size_t page_size = sysconf(_SC_PAGESIZE);
+  // hep size has to be incresead by the amount of memory that is not a multiple
+  // of the page size, since we will map page aligned memory.
+  heap_size = heap_size + (heap_size % page_size);
+  void *dummy_alloc = NULL;
+  // sanity check on the heap size
+  if (heap_size > 0) {
+    // we don't want to enable the memory watcher twice!
+    if (memory_watcher_config.status == MEMORY_WATCHER_DISABLED) {
+      // disable mmap usage
+      res = mallopt(M_MMAP_MAX, 0);
+      if (res == 0) {
+        elogf(LOG_LEVEL_ERR, "Cannot disable mmap based allocation.\n");
+        exit(-1);
+      }
+      // We need to figure out if we just want to limit the heap size or also
+      // having it a specific location.
+      if (heap_start == NULL) {
+        elogf(LOG_LEVEL_TRACE,
+              "Starting  memory watcher, bytes to preallocate: %zu.\n",
+              heap_size);
+        // preallocate the requested memory
+        res = mallopt(M_TOP_PAD, heap_size);
+        if (res == 0) {
+          elogf(LOG_LEVEL_ERR, "Cannot preallocate %zu bytes.\n", heap_size);
+          exit(-1);
+        }
+        // a dummy allocation to have malloc preallocate the requested amount of
+        // memory.
+        dummy_alloc = malloc(heap_size);
+        if (dummy_alloc == NULL) {
+          elogf(LOG_LEVEL_ERR, "Cannot allocate dynamic memory, aborting.\n");
+          exit(-1);
+        }
+        free(dummy_alloc);
+        memory_watcher_config.status = MEMORY_WATCHER_ENABLED;
+      } else {
+        // open /dev/mem as a file
+        memory_watcher_config.devmem_fp = open("/dev/mem", O_RDWR);
+        if (memory_watcher_config.devmem_fp < 0) {
+          perror("Cannot open /dev/mem to fix heap location, aborting.\n");
+          exit(-1);
+        }
+        // map a region of `/dev/dem`, starting from `heap_start` and of size
+        // `heap_size`
+
+        // @todo `heap_size` is a void*, is it ok to directly cast to `off_t`?
+        // Considering we are addressing `/dev/mem` which has a view of all the
+        // physical memory this is conceptually sound.
+
+        // Make the mapping aligned to the page size (just drop last 12
+        // bits of heap_start and readd them mmap has returned).
+        memory_watcher_config.devmem_mapping =
+            mmap(NULL, heap_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                 memory_watcher_config.devmem_fp,
+                 ((off_t)heap_start & ~(page_size - 1)));
+        if (memory_watcher_config.devmem_mapping == MAP_FAILED) {
+          perror("Cannot mmap /dev/mem to fix heap location, aborting.\n");
+          close(memory_watcher_config.devmem_fp);
+          exit(-1);
+        }
+        // add the 12 bits that we masked to make the mapping page-aligned.
+        memory_watcher_config.devmem_mapping +=
+            ((off_t)heap_start & (page_size - 1));
+        memory_watcher_config.heap_start = heap_start;
+        memory_watcher_config.fixed_heap_program_break =
+            memory_watcher_config.devmem_mapping;
+        memory_watcher_config.status = MEMORY_WATCHER_FIXED_HEAP;
+      }
+      memory_watcher_config.heap_size = heap_size;
+      memory_watcher_config.initial_program_break = sbrk(0);
+      elogf(LOG_LEVEL_TRACE,
+            "Memory watcher enabled, initial program "
+            "break:%p.\n",
+            memory_watcher_config.initial_program_break);
+      // Initialize the memory watcher configuration struct
+      // we get the value of the program break after the
+      // preallocation.
+      if (memory_watcher_config.initial_program_break == (void *)-1) {
+        perror("Cannot find the program break during memory "
+               "watcher setup.");
+        exit(-1);
+      }
+    } else {
+      elogf(LOG_LEVEL_ERR, "Attempt to configure the memory watcher when it's "
+                           "already started.\n");
+      exit(-1);
+    }
+  } else {
+    elogf(LOG_LEVEL_ERR,
+          "Attempt to configure the memory watcher with an invalid heap size "
+          "(%lu).\n",
+          heap_size);
+    exit(-1);
+  }
 }
 
 /**
- * To disable the memory watcher is we set `::memory_watcher_status` to `::MEMORY_WATCHER_DISABLED`,
- * to re-enable the use of `mmap()` in `malloc()`, by setting `M_MMAP_MAX` to its default value (`65536`), via `mallopt()` and
- * to reset `M_TOP_PAD` to its default value (`128*1024`) via `mallopt()`.
+ * To disable the memory watcher is we set `::memory_watcher_status` to
+ * `::MEMORY_WATCHER_DISABLED`, to re-enable the use of `mmap()` in
+ * `malloc()`, by setting `M_MMAP_MAX` to its default value (`65536`), via
+ * `mallopt()` and to reset `M_TOP_PAD` to its default value (`128*1024`) via
+ * `mallopt()`.
  */
-void stop_memory_watcher()
-{
-	int res;
-	if (memory_watcher_status == MEMORY_WATCHER_ENABLED) {
-		elogf(LOG_LEVEL_TRACE, "Stopping memory watcher.\n");
-		//stop the memory watcher
-		memory_watcher_status = MEMORY_WATCHER_DISABLED;
-		//reset M_TOP_PAD
-		res = mallopt(M_TOP_PAD, 128 * 1024);
-		if (res == 0) {
-			elogf(LOG_LEVEL_ERR,
-			      "Cannot reset M_TOP_PAD, after stopping memory watcher.\n");
-			exit(-1);
-		}
-		//enable mmap usage
-		res = mallopt(M_MMAP_MAX, 65536);
-		if (res == 0) {
-			elogf(LOG_LEVEL_ERR,
-			      "Cannot enable mmap based allocation after stopping memory watcher.\n");
-			exit(-1);
-		}
-	} else {
-		elogf(LOG_LEVEL_TRACE,
-		      "Attempt to disable the memory watcher when it is not enabled.\n");
-	}
+void stop_memory_watcher() {
+  int res;
+  if (memory_watcher_config.status >= MEMORY_WATCHER_ENABLED) {
+    elogf(LOG_LEVEL_TRACE, "Stopping memory watcher.\n");
+    if (memory_watcher_config.status == MEMORY_WATCHER_FIXED_HEAP) {
+      res = munmap(memory_watcher_config.devmem_mapping,
+                   memory_watcher_config.heap_size);
+      if (res < 0) {
+        perror("Cannot unmap heap from /dev/mem");
+      }
+      res = close(memory_watcher_config.devmem_fp);
+      if (res < 0) {
+        perror("Cannot close /dev/mem file pointer");
+      }
+    }
+    // stop the memory watcher
+    memory_watcher_config.status = MEMORY_WATCHER_DISABLED;
+    // reset M_TOP_PAD
+    res = mallopt(M_TOP_PAD, 128 * 1024);
+    if (res == 0) {
+      elogf(LOG_LEVEL_ERR,
+            "Cannot reset M_TOP_PAD, after stopping memory watcher.\n");
+      exit(-1);
+    }
+    // enable mmap usage
+    res = mallopt(M_MMAP_MAX, 65536);
+    if (res == 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot enable mmap based allocation after stopping "
+                           "memory watcher.\n");
+      exit(-1);
+    }
+
+  } else {
+    elogf(LOG_LEVEL_TRACE,
+          "Attempt to disable the memory watcher when it is not enabled.\n");
+  }
 }
 
-/// The symbol that corresponds to the glibc `malloc()`, after the linker has made the wrapping.
+/// The symbol that corresponds to the glibc `malloc()`, after the linker has
+/// made the wrapping.
 extern void *__real_malloc(size_t size);
 
-/** @brief The wrapped `malloc()` function, where the memory watcher is implemented.
- * @details Every time `malloc()` is invoked, we let the original implementation allocate memory via `__real_malloc()`, then we check,
- * via `sbrk(0)`, if the current program break is different from the value in `::initial_program_break`.
- * When these values differ we free the memory that was allocated, give the user an error message and call `exit(-1)`.
+/// The symbol that corresponds to the armMbed version of `malloc()`, which we
+/// are using when the user requests as fixed size heap.
+extern void *dlmalloc(size_t size);
+
+/** @brief The wrapped `malloc()` function, where the memory watcher is
+ * implemented.
+ * @details Every time `malloc()` is invoked, we let the original
+ * implementation allocate memory via `__real_malloc()`, then we check, via
+ * `sbrk(0)`, if the current program break is different from the value in
+ * `::initial_program_break`. When these values differ we free the memory that
+ * was allocated, give the user an error message and call `exit(-1)`.
  */
-void *__wrap_malloc(size_t size)
-{
-	void *pointer = NULL, *current_program_break = NULL;
-	pointer = __real_malloc(size);
-	if (memory_watcher_status == MEMORY_WATCHER_ENABLED) {
-		current_program_break = sbrk(0);
-		if (current_program_break == (void *)-1) {
-			perror("Cannot find the current program break.");
-			exit(-1);
-		}
-		if (current_program_break != initial_program_break) {
-			free(pointer);
-			elogf(LOG_LEVEL_ERR,
-			      "Memory allocation of %zu bytes has caused an heap extension.\ninitial program break: %p\ncurrent program break:%p.\nExecution will be aborted.",
-			      size, initial_program_break,
-			      current_program_break);
-			exit(-1);
-		}
-	}
-	return pointer;
+void *__wrap_malloc(size_t size) {
+  void *pointer = NULL, *current_program_break = NULL;
+  void *(*malloc)(size_t) =
+      (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP)
+          ? dlmalloc
+          : __real_malloc;
+  pointer = (malloc)(size);
+  if (memory_watcher_config.status == MEMORY_WATCHER_ENABLED) {
+    current_program_break = sbrk(0);
+    if (current_program_break == (void *)-1) {
+      perror("Cannot find the current program break.");
+      exit(-1);
+    }
+    if (current_program_break != memory_watcher_config.initial_program_break) {
+      free(pointer);
+      elogf(LOG_LEVEL_ERR,
+            "Memory allocation of %zu bytes has caused an heap "
+            "extension.\ninitial program break: %p\ncurrent program "
+            "break:%p.\nExecution will be aborted.",
+            size, memory_watcher_config.initial_program_break,
+            current_program_break);
+      exit(-1);
+    }
+  }
+  return pointer;
 }
 
-///The symbol that corresponds to the real `mmap()`, after the linker has done the wrapping.
+/// The symbol that corresponds to the real `mmap()`, after the linker has
+/// done the wrapping.
 extern void *__real_mmap(void *addr, size_t len, int prot, int flags,
-			 int fildes, off_t off);
+                         int fildes, off_t off);
 
-/** @brief Wrapper of `mmap()` which disables the function if the memory watcher is enabled.
- * @details If `mmap()` is called when the memory watcher is enabled, the program will crash using `exit(-1)`.
+/** @brief Wrapper of `mmap()` which disables the function if the memory
+ * watcher is enabled.
+ * @details If `mmap()` is called when the memory watcher is enabled, the
+ * program will crash using `exit(-1)`.
  */
 void *__wrap_mmap(void *addr, size_t len, int prot, int flags, int fildes,
-		  off_t off)
-{
-	if (memory_watcher_status == MEMORY_WATCHER_ENABLED) {
-		elogf(LOG_LEVEL_ERR,
-		      "Use of mmap() after enabling the memory watcher is not allowed, aborting.\n");
-		exit(-1);
-	} else {
-		return __real_mmap(addr, len, prot, flags, fildes, off);
-	}
+                  off_t off) {
+  if (memory_watcher_config.status >= MEMORY_WATCHER_ENABLED) {
+    elogf(LOG_LEVEL_ERR, "Use of mmap() after enabling the memory watcher is "
+                         "not allowed, aborting.\n");
+    exit(-1);
+  } else {
+    return __real_mmap(addr, len, prot, flags, fildes, off);
+  }
+}
+
+/// The symbol that corresponds to the real `sbrk()`, after the linker has
+/// done the wrapping.
+extern void *__real_sbrk(intptr_t increment);
+
+/** @brief Wrapper for `sbrk()`, which will use the user defined heap.
+ * */
+void *__wrap_sbrk(intptr_t offset) {
+  void *pointer = NULL;
+  switch (memory_watcher_config.status) {
+  case MEMORY_WATCHER_FIXED_HEAP:
+    // with a positive increment we need to check if the new program break is
+    // withing the heap maximum size
+    if (memory_watcher_config.fixed_heap_program_break + offset <
+            memory_watcher_config.devmem_mapping ||
+        memory_watcher_config.fixed_heap_program_break + offset >
+            memory_watcher_config.devmem_mapping +
+                memory_watcher_config.heap_size) {
+      elogf(LOG_LEVEL_ERR,
+            "sbrk heap modification (%lu bytes) would result in a wrong heap "
+            "size (%lu bytes, limit is %lu bytes), aborting.\n",
+            offset,
+            memory_watcher_config.fixed_heap_program_break + offset -
+                memory_watcher_config.devmem_mapping,
+            memory_watcher_config.heap_size);
+      errno = ENOMEM;
+      pointer = (void *)-1;
+      break;
+    }
+    pointer = memory_watcher_config.fixed_heap_program_break;
+    memory_watcher_config.fixed_heap_program_break +=
+        offset; // modify the current program break
+    break;
+  case MEMORY_WATCHER_DISABLED:
+    pointer = __real_sbrk(offset);
+    break;
+  case MEMORY_WATCHER_ENABLED:
+    elogf(LOG_LEVEL_ERR, "Use of sbrk() after enabling the memory watcher is "
+                         "not allowed, aborting.\n");
+    errno = ENOMEM;
+    pointer = (void *)-1;
+    break;
+  default:
+    elogf(LOG_LEVEL_ERR, "Invalid memory watcher status: %d.\n",
+          memory_watcher_config.status);
+    errno = ENOMEM;
+    pointer = (void *)-1;
+    break;
+  }
+  return pointer;
+}
+
+/// The symbol that corresponds to the real `free()`, after the linker has
+/// done the wrapping.
+extern void __real_free(void *ptr);
+
+/// The symbol that corresponds to the armMbed `free()`, implementation, used
+/// when we want a fixed heap.
+extern void dlfree(void *ptr);
+
+/* @brief `free()` wrapper.
+ * @param[in] ptr The pointer to the memory to be freed.
+ * @details We wrap `free()` because we need to use `dlfree()` if the heap
+ * location is fixed.
+ */
+void __wrap_free(void *ptr) {
+  if (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP) {
+    dlfree(ptr);
+  } else {
+    __real_free(ptr);
+  }
 }
