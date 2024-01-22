@@ -21,7 +21,7 @@ May be not available, see [here](#json_support) for details.
 
 A JSON file is composed as a list of the desired options written in their full length. For example, `task.json` can be as follows:
 
-```{.c}
+```
 {
         "deadline": 1,
         "period": 1,
