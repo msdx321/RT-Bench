@@ -75,7 +75,15 @@ static struct memory_watcher_config {
  *
  * If `heap_start` is not `NULL`, the memory watcher will also use a cutsom
  * `sbrk()` and `malloc()` perfom allocations starting from that address. In
- * this configuration the default preallocation strategy is used.
+ * this configuration the default preallocation strategy of the `dlmalloc` 
+ * implementation is used.
+ *
+ * When fixeing the heap location make sure to have some extra space available
+ * for our `malloc` implementation to use. 
+ * As an example, onsider running the `::latency` benchmark with a fixed heap
+ * location and 2MB size. The `dlmalloc()` that we are using will need ~150
+ * bytes to setup its internal datastructures, so the maximum amount of
+ * memory that latency can use would be ~1900KB.
  */
 void start_memory_watcher(size_t heap_size, void *heap_start) {
   int res;
@@ -147,6 +155,7 @@ void start_memory_watcher(size_t heap_size, void *heap_start) {
         memory_watcher_config.fixed_heap_program_break =
             memory_watcher_config.devmem_mapping;
         memory_watcher_config.status = MEMORY_WATCHER_FIXED_HEAP;
+  	elogf(LOG_LEVEL_TRACE,"Fixed heap enabled.\n");
       }
       memory_watcher_config.heap_size = heap_size;
       memory_watcher_config.initial_program_break = sbrk(0);
@@ -238,11 +247,15 @@ extern void *dlmalloc(size_t size);
  * was allocated, give the user an error message and call `exit(-1)`.
  */
 void *__wrap_malloc(size_t size) {
+  elogf(LOG_LEVEL_TRACE,"wapper malloc with size %zu\n",size);
   void *pointer = NULL, *current_program_break = NULL;
   void *(*malloc)(size_t) =
       (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP)
           ? dlmalloc
           : __real_malloc;
+  
+  elogf(LOG_LEVEL_TRACE,"wrapped malloc mem watcher config status:%d \n",memory_watcher_config.status);
+  elogf(LOG_LEVEL_TRACE,"wrapped malloc \t real_malloc address: %p, dlmalloc %p, selected:%p\n",__real_malloc,dlmalloc,malloc);
   pointer = (malloc)(size);
   if (memory_watcher_config.status == MEMORY_WATCHER_ENABLED) {
     current_program_break = sbrk(0);
@@ -261,6 +274,7 @@ void *__wrap_malloc(size_t size) {
       exit(-1);
     }
   }
+  elogf(LOG_LEVEL_TRACE,"wapper malloc done with pointer %p\n",pointer);
   return pointer;
 }
 
@@ -292,6 +306,7 @@ extern void *__real_sbrk(intptr_t increment);
 /** @brief Wrapper for `sbrk()`, which will use the user defined heap.
  * */
 void *__wrap_sbrk(intptr_t offset) {
+  elogf(LOG_LEVEL_TRACE,"wrapped sbrk with offset %ld, memory watcher status: %d\n",offset, memory_watcher_config.status);
   void *pointer = NULL;
   switch (memory_watcher_config.status) {
   case MEMORY_WATCHER_FIXED_HEAP:
@@ -303,7 +318,7 @@ void *__wrap_sbrk(intptr_t offset) {
             memory_watcher_config.devmem_mapping +
                 memory_watcher_config.heap_size) {
       elogf(LOG_LEVEL_ERR,
-            "sbrk heap modification (%lu bytes) would result in a wrong heap "
+            "sbrk heap modification (%ld bytes) would result in a wrong heap "
             "size (%lu bytes, limit is %lu bytes), aborting.\n",
             offset,
             memory_watcher_config.fixed_heap_program_break + offset -
@@ -316,15 +331,20 @@ void *__wrap_sbrk(intptr_t offset) {
     pointer = memory_watcher_config.fixed_heap_program_break;
     memory_watcher_config.fixed_heap_program_break +=
         offset; // modify the current program break
+  elogf(LOG_LEVEL_TRACE,"wrapped sbrk new program break%p\n",memory_watcher_config.fixed_heap_program_break);
     break;
   case MEMORY_WATCHER_DISABLED:
     pointer = __real_sbrk(offset);
     break;
   case MEMORY_WATCHER_ENABLED:
+    if(offset ==0 ){
+    pointer = __real_sbrk(offset);
+    } else {
     elogf(LOG_LEVEL_ERR, "Use of sbrk() after enabling the memory watcher is "
                          "not allowed, aborting.\n");
     errno = ENOMEM;
     pointer = (void *)-1;
+    }
     break;
   default:
     elogf(LOG_LEVEL_ERR, "Invalid memory watcher status: %d.\n",
@@ -333,6 +353,8 @@ void *__wrap_sbrk(intptr_t offset) {
     pointer = (void *)-1;
     break;
   }
+
+  elogf(LOG_LEVEL_TRACE,"wrapped sbrk done pointer:%p\n",pointer);
   return pointer;
 }
 
@@ -350,9 +372,11 @@ extern void dlfree(void *ptr);
  * location is fixed.
  */
 void __wrap_free(void *ptr) {
+  elogf(LOG_LEVEL_TRACE,"wrapped free\n");
   if (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP) {
     dlfree(ptr);
   } else {
     __real_free(ptr);
   }
+  elogf(LOG_LEVEL_TRACE,"wrapped free done\n");
 }

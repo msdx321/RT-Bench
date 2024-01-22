@@ -132,8 +132,15 @@ static float extra_measurement = 0.0f;
  */
 static void stop_benchmark(int status, void *arg) {
   int res;
+  elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
+  benchmark_teardown(benchmark_param_num, benchmark_params);
   // we stop the memory watcher
   stop_memory_watcher();
+  elogf(LOG_LEVEL_TRACE, "Cleaning parameter list\n");
+  // Clean/free buffers
+  for (size_t i = 0; i < benchmark_param_num; i++)
+    free(benchmark_params[i]);
+  free(benchmark_params);
   if (filep != NULL) {
     elogf(LOG_LEVEL_TRACE, "Closing output file\n");
     res = fclose(filep);
@@ -180,12 +187,6 @@ static void stop_benchmark(int status, void *arg) {
   if (res < 0) {
     perror("Error during period semaphore destruction");
   }
-  elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
-  benchmark_teardown(benchmark_param_num, benchmark_params);
-  // Clean/free buffers
-  for (size_t i = 0; i < benchmark_param_num; i++)
-    free(benchmark_params[i]);
-  free(benchmark_params);
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
   res = teardown_pmcs();
   if (res < 0) {
@@ -572,12 +573,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
     elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
   }
-  elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
-  res = benchmark_init(benchmark_param_num, benchmark_params);
-  if (res < 0) {
-    perror("Error during job environment initialization");
-    return res;
-  }
   elogf(LOG_LEVEL_TRACE, "Job environment initialization complete\n");
 
   res = setup_signal(SIGINT, quit_handler, quit_masked_signals,
@@ -587,17 +582,26 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   elogf(LOG_LEVEL_TRACE, "Quit handler setup completed.\n");
 
-  if (exec_opts->bytes_to_preallocate > 0) {
-    start_memory_watcher(exec_opts->bytes_to_preallocate,
-                         exec_opts->heap_address);
-  }
 
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+  elogf(LOG_LEVEL_TRACE, "Initializing perf counters\n");
   res = setup_pmcs();
   if (res < 0) {
     return res;
   }
+  elogf(LOG_LEVEL_TRACE, "Perf counters initialized\n");
 #endif
+  elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
+  if (exec_opts->bytes_to_preallocate > 0) {
+    start_memory_watcher(exec_opts->bytes_to_preallocate,
+                         exec_opts->heap_address);
+  }
+  res = benchmark_init(benchmark_param_num, benchmark_params);
+  if (res < 0) {
+    perror("Error during job environment initialization");
+    return res;
+  }
+  elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");
   if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
     // we initialize the period semaphore to 0, to wait for the period end.
     res = sem_init(&period_sem, 1, 0);

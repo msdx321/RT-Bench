@@ -155,7 +155,6 @@ int benchmark_init(int parameters_num, void **parameters)
 	opts[0] = "latency";
 	memcpy(opts + 1, parameters, sizeof(char *) * parameters_num);
 	while ((opt = getopt(opt_num, opts, "m:si:h")) != -1) {
-		printf("opt:%d\n", opt);
 		switch (opt) {
 		case 'm': /* set memory size */
 			g_mem_size = 1024 * strtol(optarg, NULL, 0);

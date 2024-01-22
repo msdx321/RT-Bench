@@ -599,7 +599,7 @@ int main(int argc, char **argv) {
      "G=gigabytes. Without a magnitude modifier specified the value is assumed "
      "to be in bytes. 0 Means no limit, and it is the default setting."},
     {"heap-location", 'H', "0xdeadbeef", 0,
-     "The location of the heap, requires mem-limit to be set."},
+     "The location of the heap, requires mem-limit to be set. Make sure to have enough space for both the benchmark and malloc's data structures."},
     {"tasks-number", 't', "integer>=0", 0,
      "The number of tasks to be executed. 0 means until the program receives a "
      "SIGINT. Default is 0."},
@@ -687,6 +687,8 @@ int main(int argc, char **argv) {
     elogf(LOG_LEVEL_TRACE, "\toutput path: %s\n", parsed_args.output_path);
     elogf(LOG_LEVEL_TRACE, "\tmemory to preallocate (in bytes):%zu\n",
           parsed_args.bytes_to_preallocate);
+    elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
+          parsed_args.heap_address);
   }
 
   // benchmark initialization
