@@ -27,6 +27,7 @@ enum memory_watcher_states {
                                ///< location is fixed.
 };
 
+///@brief The current configuration of the memory watcher.
 static struct memory_watcher_config {
 
   /** The status of the memory watcher.
@@ -68,9 +69,9 @@ static struct memory_watcher_config {
  * is used to set `M_MMAP_MAX` to `0`. Then, a dummy allocation (a `malloc()`
  * and a `free()`) is performed, to have the requested memory preallocated.
  *
- * To enable the memory watcher, `::memory_watcher_status` is set to
+ * To enable the memory watcher, `::memory_watcher_config->status` is set to
  * `::MEMORY_WATCHER_ENABLED` and the initial value of the program break is
- * stored in `::initial_program_break` via `sbrk(0)`. As a side effect from the
+ * stored in `::memory_watcher_config->initial_program_break` via `sbrk(0)`. As a side effect from the
  * memory watcher start, `mmap()` will be disabled.
  *
  * If `heap_start` is not `NULL`, the memory watcher will also use a cutsom
@@ -80,7 +81,7 @@ static struct memory_watcher_config {
  *
  * When fixeing the heap location make sure to have some extra space available
  * for our `malloc` implementation to use. 
- * As an example, onsider running the `::latency` benchmark with a fixed heap
+ * As an example, consider running the @ref latency benchmark with a fixed heap
  * location and 2MB size. The `dlmalloc()` that we are using will need ~150
  * bytes to setup its internal datastructures, so the maximum amount of
  * memory that latency can use would be ~1900KB.
@@ -186,7 +187,7 @@ void start_memory_watcher(size_t heap_size, void *heap_start) {
 }
 
 /**
- * To disable the memory watcher is we set `::memory_watcher_status` to
+ * To disable the memory watcher is we set `::memory_watcher_config->status` to
  * `::MEMORY_WATCHER_DISABLED`, to re-enable the use of `mmap()` in
  * `malloc()`, by setting `M_MMAP_MAX` to its default value (`65536`), via
  * `mallopt()` and to reset `M_TOP_PAD` to its default value (`128*1024`) via
@@ -243,7 +244,7 @@ extern void *dlmalloc(size_t size);
  * @details Every time `malloc()` is invoked, we let the original
  * implementation allocate memory via `__real_malloc()`, then we check, via
  * `sbrk(0)`, if the current program break is different from the value in
- * `::initial_program_break`. When these values differ we free the memory that
+ * `::memory_watcher_config->initial_program_break`. When these values differ we free the memory that
  * was allocated, give the user an error message and call `exit(-1)`.
  */
 void *__wrap_malloc(size_t size) {
