@@ -39,7 +39,7 @@ So far, the top-level Makefile supports three types of parameters:
 
 The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled, and (4) will provide extended report:
 
-```{.sh}
+```
 CC=aarch64-linux-gnu-gcc-11 CORE=CORTEX_A53 JSON=1 EXTENDED_REPORT=1 make
 ```
 
