@@ -51,6 +51,8 @@ c-run: compile
 debug:
 	@echo Running Debug C Version of the benchmark
 	@$(COMPILE_G) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 
 debug-valgrind: debug
 	@valgrind --leak-check=full -s ./$(BMARK)$(EXE) $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
@@ -61,6 +63,8 @@ debug-gdb: debug
 debug-asan:
 	@echo Running Debug C Version of the benchmark
 	@$(COMPILE_G) -fsanitize=address $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(CLIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 	@./$(BMARK)$(EXE) $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT)
 
 
@@ -75,13 +79,17 @@ compile: rtbench $(C_SRC)
 	@echo -e "Benchmark\t\t- $(BMARK)"
 	@echo -e "${COMPILE_C}"
 	@$(COMPILE_C) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	echo "$(STATICX_REQ)"
+	echo "$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx"
 
 compile-prof: $(C_SRC)
 	@echo
 	@echo -e "Benchmark\t\t- $(BMARK)"
 	@$(COMPILE_PG) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 
 all: c-run
 
 clean:
-	@-rm $(BMARK)
+	@-rm -f $(BMARK) $(BMARK)$(EXE) $(BMARK)$(EXE).sx

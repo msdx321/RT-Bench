@@ -9,25 +9,56 @@ This page will guide the user in building benchmarks with RT-Bench.
 In the current implementation, the framework has some
 dependencies the user has to be aware of:
 
+### System dependencies {#sys-deps}
+
+These features have to be present in the platform that will execute the
+benchmarks.
+
+- POSIX.4 real-time signals: used to execute the benchmark periodically and to
+  gather stats.
+- Linux scheduler syscalls: Used to change the scheduling policy.
+
+### Core dependencies {#core-deps}
+
+These dependencies are needed for compiling and executing the benchmarks on the
+target machine.
+
 - A shell that can run scripts in Bash >= 5.
+- Glibc >= 2.34: Provides primitives used by the memory watcher and the argument
+  parser. (Older versions might create problems with the makefile scaffolding).
+  Its static version is optionally needed for static compilation.
+- argp.h: Used for cli argument parsing (some distributions do not include it by
+  default).
+- Gcc >= 9.5.0: The compiler we have chosen.
+- ldd >= 2.34: Should be bundled with glibc, optionally the standalone binary is
+  needed also [StaticX](#staticx) compilation.
 - git >= 2.37.
 - perl >= 5.34.1. Needed for SD-VBS to find the suite root directory.
+
+### Optional dependencies
+
+Dependencies that are tied to specific benchmarks or some optional features that
+can be disabled.
+
 - git LFS >= 2.13: _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.
-- Glibc >= 2.34: Provides primitives used by the memory watcher and the argument parser. (Older versions might create problems with the makefile scaffolding)
-- POSIX.4 real-time signals: used to execute the benchmark periodically and to gather stats.
-- Linux scheduler syscalls: Used to change the scheduling policy.
-- argp.h: Used for cli argument parsing (some distribution do not include it by default).
-- Linux Perf: Used to read performance counters (currently only on intel and CORTEX A53)
+- Linux Perf: _Optional._ Used to read performance counters (currently only on intel and CORTEX A53)
 - [JSON-C](https://github.com/json-c/json-c) >= 0.15: _Optional._ Used to read and parse input JSON configuration files.
-- [imagemagick](https://imagemagick.org/) >= 7.1.0-45 _Optional._ For the [Image Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html) module.
+- [imagemagick](https://imagemagick.org/) >= 7.1.0-45 _Optional._ For the [Image
+  Filters](https://rt-bench.gitlab.io/rt-bench/group__image-filters.html)
+  module.
+- binutils >= 2.38 _Optional._ (readelf and objcopy) For [StaticX](#staticx)
+  compilation.
+- [patchelf](https://github.com/NixOS/patchelf) >= 0.14.5 _Optional._ For
+  [StaticX](#staticx) compilation.
+- Python 3.10+ with pip and venv _Optional._ For the utils scripts and
+  [StaticX](#staticx) compilation.
 
 Currently, RT-Bench targets the following platforms:
 
 - x86/x86_64
 - ARM64
-  For [Nix](https://nixos.org/) users, a flake and a [direnv](https://direnv.net/) environment are available to make sure that all the dependencies are satisfied.
 
-#### Dependence installation
+### Dependency installation
 
 The `json-c` dependence can be installed with the following command:
 
@@ -49,25 +80,42 @@ sudo dnf install json-c json-c-devel
 sudo pacman -S json-c
 ```
 
+##### Nix users
+
+For [Nix](https://nixos.org/) users, a flake and a [direnv](https://direnv.net/)
+environment are available to make sure that all the dependencies are satisfied.
+The flake provides two development shells:
+- A default one, accessed by [direnv](https://direnv.net/) and by `nix develop
+  .#` in the repo root with all dependencies satisfied for x86_64 systems.
+- An aarch64 cross compilation shells, accessed with `nix develop.#aarch64` in
+  the repo root, that provides dependencies and `aarch64-unknown-linux-gnu-gcc`
+  cross-compiler.
+
 ## Compiling RT-Bench
 
-Compiling a RT-Bench compliant benchmark (see [benchmark structure](3-Extending_rt-bench.markdown)) with the framework using the provided `Makefile` structure is easy and the best way to benefit from all the features offered by RT-Bench.
+Compiling a RT-Bench compliant benchmark (see [benchmark structure](3-Extending_rt-bench.markdown)) with the framework using the provided
+`Makefile` structure is easy and the best way to benefit from all the features
+offered by RT-Bench.
 
 The `Makefile` provided in [Isolbench](@ref IsolBench) is a good example of how to use the provided makefile interface/variables.
 
 Typically, once `generator/rtbench.mk` is included, five different variables are accessible:
 
 - `rtbench`: recipe to initialize and build the RT-Bench core components for the desired target
-- `CC`: user specified compiler for the desired target
+- `CC`: user-specified compiler for the desired target
 - `CFLAGS`: compilation flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
 - `BASE_O`: set of object files for the RT-Bench core components
 - `LDFLAGS`: linker flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
+- `STATICX_REQ`: Requirements to have [StaticX](#staticx) on path, undefined	when the feature is disabled.
+- `STATICX_CMD`: Command line for packing the executable with [StaticX](#staticx) replaced by a printf when the feature is disabled.
 
 Using these variables and recipes, we recommend to write recipes for compiling your benchmark with the following template:
 
 ```{.mk}
 <benchmark>: rtbench
 	$(CC) $(CFLAGS) <benchmark>.c $(BASE_O) -o <benchmark> $(LDFLAGS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) <benchmark> <benchmark>.sx
 ```
 
 ## Optional RT-Bench specific options
@@ -174,6 +222,33 @@ behavior can be achieved by, adding the
 `-DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=1` (enable) or
 `-DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=0` (disable) flag in the compilation
 command line.
+
+
+#### Static Copilation
+
+For systems that cannot met the [core dependencies](#core-deps) due to version constraints
+but can meet the [system dependencies](#sys-deps) RT-Bench provides two optional ways to get
+have the benchmarks running.
+
+##### With GCC
+
+The user can enable static compilation with GCC (which requires the static
+version of the libraries to be installed) with the `FEAT_GCC_STATIC=y` variable
+while issuing a make command. Conversely using `FEAT_GCC_STATIC=n` will make
+sure that the feature stays disabled.
+
+##### With StaticX {#staticx}
+
+If only the dynamic version of the needed libraries is present, the user can
+still enable a "semi-static" compilation by invoking
+[StaticX](https://staticx.readthedocs.io/en/latest/introduction.html), which
+will pack in the target executable the needed libraries and unpack them in a
+temporary location when the executable is being run.
+
+This feature can be enabled or force-disabled with the make variable
+`FEAT_STATICX=y` or `FEAT_STATICX=n`.
+
+Executables packed with staticx will have the `.sx` extension.
 
 @author Mattia Nicolella, Denis Hoornaert
 @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de>, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
