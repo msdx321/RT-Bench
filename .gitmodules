@@ -7,3 +7,6 @@
 [submodule "image-filters"]
 	path = image-filters
 	url = https://gitlab.com/rt-bench/image-filters.git
+[submodule "generator/src/dlmalloc"]
+	path = generator/src/dlmalloc
+	url = https://github.com/ARMmbed/dlmalloc.git

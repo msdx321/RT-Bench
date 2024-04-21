@@ -23,7 +23,7 @@ BASE_O=$(OBJECT)/*.o
 override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
 
 # Add linker's flags
-override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--no-as-needed
+override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
 
 #optional features
 
@@ -125,10 +125,10 @@ CXXFLAGS:=$(CFLAGS)
 
 # RT-Bench core recipes
 .PHONY: default rtbench
-## Add this recipe such that 'all' recipe in children makefile become the defualt one
+## Add this recipe such that 'all' recipe in children makefile become the default one
 default: all
 ## Base recipe to build with the whole RT-Bench core!
-rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp
+rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc
 
 # staticx target to setup the environment if staticx is enabled and not already on path
 ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
@@ -151,6 +151,14 @@ endif
 
 init: staticx-check
 	@mkdir -p $(OBJECT)
+
+dlmalloc: init
+	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
 
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
 	$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
