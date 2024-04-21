@@ -11,8 +11,10 @@ setup: setup-docs setup-tacle setup-image-filters setup-compile
 
 #setup targets
 setup-compile:
+ifndef DOCS_ONLY
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
 	@git submodule update --init --recursive generator/src/dlmalloc
+endif
 
 setup-docs:
 	make -C ${CURDIR}/docs setup

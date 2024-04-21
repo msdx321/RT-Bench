@@ -10,3 +10,6 @@
 [submodule "generator/src/dlmalloc"]
 	path = generator/src/dlmalloc
 	url = https://github.com/ARMmbed/dlmalloc.git
+[submodule "docs/conf/doxyvers"]
+	path = docs/conf/doxyvers
+	url = https://github.com/root-project/doxyvers.git
