@@ -2,177 +2,177 @@
 image: ubuntu:rolling
 
 stages:
-  - build
-  - test
-  - deploy
+    - build
+    - test
+    - deploy
 
 #Some global variables
 variables:
-  #submodules config
-  GIT_SUBMODULE_STRATEGY: recursive
-  GIT_SUBMODULE_FORCE_HTTPS: "true"
-  #GIT_SUBMODULE_DEPTH: 1
+    #submodules config
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_FORCE_HTTPS: "true"
+    #GIT_SUBMODULE_DEPTH: 1
 
 # build rt-bench and all public submodules for x86_64, aarch64 and riscv. (with both gcc and g++)
 build-x86_64:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  script:
-    - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick
-    - make setup
-    #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    #- make clean
-    - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-  # save bulid result
-  artifacts:
-    untracked: true
-    paths: # GitLab does not yet support saving as artifacts untracked files in submodules; their path has to be included manually.
-      - "image-filters/**"
-      - "rt-tacle-bench/binaries/**"
-    exclude:
-      - "**.o"
-      - "**.h"
-      - "**.c"
-      - "**.jpg"
-      - "**.dox"
-      - "**.md"
-      - "README"
-      - "LICENSE"
+    stage: build
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    script:
+        - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick make sed
+        - make setup
+        #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        #- make clean
+        - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    # save bulid result
+    artifacts:
+        untracked: true
+        paths: # GitLab does not yet support saving as artifacts untracked files in submodules; their path has to be included manually.
+            - "image-filters/**"
+            - "rt-tacle-bench/binaries/**"
+        exclude:
+            - "**.o"
+            - "**.h"
+            - "**.c"
+            - "**.jpg"
+            - "**.dox"
+            - "**.md"
+            - "README"
+            - "LICENSE"
 
 build-aarch64:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  script:
-    - apt-get -yq update && apt-get -yq install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick
-    - make setup
-    #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    #- make clean
-    - CC=aarch64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    stage: build
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    script:
+        - apt-get -yq update && apt-get -yq install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick make sed
+        - make setup
+        #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        #- make clean
+        - CC=aarch64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 build-riscv:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  script:
-    - apt-get -yq update && apt-get -yq install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick
-    - make setup
-    #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    #- make clean
-    - CC=riscv64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    stage: build
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    script:
+        - apt-get -yq update && apt-get -yq install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick make sed
+        - make setup
+        #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        #- make clean
+        - CC=riscv64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all vision benchmarks on x86_64 once to make sure there are no problems
 test-vision:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  dependencies:
-    - build-x86_64
-  script:
-    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-vision # TODO: needed for local gitlab-runner. Remove/comment after testing locally
-    - shopt -s nullglob
-    - vision_bmarks=(vision/benchmarks/*/)
-    - shopt -u nullglob
-    - |-
-      for bmark in ${vision_bmarks[@]}; do
-        shopt -s nullglob;
-        vision_inputs=($bmark/data/*/);
-        delete=("$bmark/data/fullhd/" "$bmark/data/GroundData/")
-        for del in ${delete[@]}; do
-          vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
-        done
-        shopt -u nullglob;
-        for input in ${vision_inputs[@]}; do
-          echo "$(readlink -f $input$(basename $bmark))";
-          if [[ $(basename $bmark) == "pca" ]]; then
-            $input$(basename $bmark) -t 1 -l 2 -o "output.csv" -b "$input/sat.tst 2000 37 R";
-          else
-            $input$(basename $bmark) -t 1 -l 1 -b "$input";
-          fi
-          done;
-        done
+    stage: test
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    dependencies:
+        - build-x86_64
+    script:
+        #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install make sed git bash binutils build-essential imagemagick && make compile-vision # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+        - shopt -s nullglob
+        - vision_bmarks=(vision/benchmarks/*/)
+        - shopt -u nullglob
+        - |-
+            for bmark in ${vision_bmarks[@]}; do
+              shopt -s nullglob;
+              vision_inputs=($bmark/data/*/);
+              delete=("$bmark/data/fullhd/" "$bmark/data/GroundData/")
+              for del in ${delete[@]}; do
+                vision_inputs=("${vision_inputs[@]/$del}") #Quotes when working with strings
+              done
+              shopt -u nullglob;
+              for input in ${vision_inputs[@]}; do
+                echo "$(readlink -f $input$(basename $bmark))";
+                if [[ $(basename $bmark) == "pca" ]]; then
+                  $input$(basename $bmark) -t 1 -l 2 -o "output.csv" -b "$input/sat.tst 2000 37 R";
+                else
+                  $input$(basename $bmark) -t 1 -l 1 -b "$input";
+                fi
+                done;
+              done
 # run all isolbench benchmarks on x86_64 once to make sure there are no problems
 test-isolbench:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  dependencies:
-    - build-x86_64
-  script:
-    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-isolbench # TODO: needed for local gitlab-runner. Remove/comment after testing locally
-    - isolbench_bmarks=($(find IsolBench/ -type f -executable ! -name "*.*"))
-    - |-
-      for bmark in ${isolbench_bmarks[@]}; do
-        echo $bmark;
-        $bmark -t 1 -l 4;
-      done
+    stage: test
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    dependencies:
+        - build-x86_64
+    script:
+        #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install make sed git bash binutils build-essential imagemagick && make compile-isolbench # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+        - isolbench_bmarks=($(find IsolBench/ -type f -executable ! -name "*.*"))
+        - |-
+            for bmark in ${isolbench_bmarks[@]}; do
+              echo $bmark;
+              $bmark -t 1 -l 4;
+            done
 # run all image-filters benchmarks on x86_64 once to make sure there are no problems
 test-image-filters:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  dependencies:
-    - build-x86_64
-  script:
-    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick &&  make setup && make compile-image-filters # TODO: needed for local gitlab-runner. Remove/comment after testing locally
-    - image_bmarks=($(find image-filters/ -type f -executable ! -name "*.*" ))
-    - |-
-      for bmark in ${image_bmarks[@]}; do
-        shopt -s nullglob;
-        inputs=(image-filters/inputs/*.bmp);
-        shopt -u nullglob;
-        for input in ${inputs[@]}; do
-          echo "$bmark $input";
-          $bmark -t 1 -l 1 -b "$input output.bmp";
-        done;
-      done
+    stage: test
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    dependencies:
+        - build-x86_64
+    script:
+        #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install make sed git bash binutils build-essential imagemagick &&  make setup && make compile-image-filters # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+        - image_bmarks=($(find image-filters/ -type f -executable ! -name "*.*" ))
+        - |-
+            for bmark in ${image_bmarks[@]}; do
+              shopt -s nullglob;
+              inputs=(image-filters/inputs/*.bmp);
+              shopt -u nullglob;
+              for input in ${inputs[@]}; do
+                echo "$bmark $input";
+                $bmark -t 1 -l 1 -b "$input output.bmp";
+              done;
+            done
 # run all taclebench benchmarks on x86_64 once to make sure there are no problems
 test-tacle:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  dependencies:
-    - build-x86_64
-  script:
-    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick &&  make setup && make compile-tacle # TODO: needed for local gitlab-runner. Remove/comment after testing locally
-    - shopt -s nullglob
-    - tacle_bmarks=(rt-tacle-bench/binaries/*)
-    - delete=(rt-tacle-bench/binaries/minver) # exclude minver, it usually work locally but crashes in a docker enviroment
-    - |-
-      for del in ${delete[@]}; do
-        tacle_bmarks=("${tacle_bmarks[@]/$del}") #Quotes when working with strings
-      done
-    - shopt -u nullglob
-    - |-
-      for bmark in ${tacle_bmarks[@]}; do
-        echo $bmark;
-        $bmark -t 1 -l 3;
-      done
+    stage: test
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    dependencies:
+        - build-x86_64
+    script:
+        #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install make sed git bash binutils build-essential imagemagick &&  make setup && make compile-tacle # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+        - shopt -s nullglob
+        - tacle_bmarks=(rt-tacle-bench/binaries/*)
+        - delete=(rt-tacle-bench/binaries/minver) # exclude minver, it usually work locally but crashes in a docker enviroment
+        - |-
+            for del in ${delete[@]}; do
+              tacle_bmarks=("${tacle_bmarks[@]/$del}") #Quotes when working with strings
+            done
+        - shopt -u nullglob
+        - |-
+            for bmark in ${tacle_bmarks[@]}; do
+              echo $bmark;
+              $bmark -t 1 -l 3;
+            done
 
 # run all vision benchmarks on x86_64 once to make sure there are no problems
 test-utils:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev/unstable"
-  dependencies:
-    - build-x86_64
-  script:
-    #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick && make compile-utils # TODO: needed for local gitlab-runner. Remove/comment after testing locally
-    - echo "utils/overhead"; utils/overhead -p 1 -d 1 -t 1 -l 2 -o "output.csv";
+    stage: test
+    rules:
+        - if: $CI_COMMIT_BRANCH == "dev/unstable"
+    dependencies:
+        - build-x86_64
+    script:
+        #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git make sed bash binutils build-essential imagemagick && make compile-utils # TODO: needed for local gitlab-runner. Remove/comment after testing locally
+        - echo "utils/overhead"; utils/overhead -p 1 -d 1 -t 1 -l 2 -o "output.csv";
 
 #rebuild the documentation every time there are commits on the main branch
 pages:
-  stage: deploy
-  # no artifacts needed for this job
-  dependencies: []
-  script:
-    - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
-    - DOCS_ONLY=1 make setup
-    - make docs
-    - mv docs/html/ public/
-  artifacts:
-    paths:
-      - public
-  only:
-    - main
+    stage: deploy
+    # no artifacts needed for this job
+    dependencies: []
+    script:
+        - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
+        - DOCS_ONLY=1 make setup
+        - make docs
+        - mv docs/html/ public/
+    artifacts:
+        paths:
+            - public
+    only:
+        - main
