@@ -149,10 +149,10 @@ else
 staticx-check:
 endif
 
-init: staticx-check
+init: staticx-check dlmalloc
 	@mkdir -p $(OBJECT)
 
-dlmalloc: init
+dlmalloc: $(OBJECT)/dlmalloc.o
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
