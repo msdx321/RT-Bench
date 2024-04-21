@@ -1,16 +1,16 @@
 /** @file performance_counters.h
- * @ingroup rt-bench_generator
+ * @ingroup generator
  * @author Denis Hoornaert
- * @brief API to extract performance counters (e.g., L1-D refills) for the benchmark under analysis.
+ * @brief API to extract performance counters (e.g., L1-D refills) for the
+ * benchmark under analysis.
  *
- * @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de> and the rt-bench contributors.
- * SPDX-License-Identifier: MIT
+ * @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de> and the
+ * rt-bench contributors. SPDX-License-Identifier: MIT
  */
 #ifndef PERFORMANCE_COUNTERS_H
 #define PERFORMANCE_COUNTERS_H
 
 #include "optional_features.h"
-
 /** @brief Struct used to hold the measured performance events.
  * @details
  * Struct returning the performance counters in an abstract way.

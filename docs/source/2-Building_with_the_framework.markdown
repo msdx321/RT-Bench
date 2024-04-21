@@ -27,10 +27,8 @@ Currently, RT-Bench targets the following platforms:
 - ARM64
   For [Nix](https://nixos.org/) users, a flake and a [direnv](https://direnv.net/) environment are available to make sure that all the dependencies are satisfied.
 
-#### Dependence installation
-
-The `json-c` dependence can be installed with the following command:
-
+### Dependencies installation
+  The `json-c` dependence can be installed with the following command:
 - Ubuntu/Debian:
 
 ```{.sh}
@@ -99,7 +97,7 @@ FEAT_SCHED_DEADLINE=n
 FEAT_JSON=y
 ```
 
-#### Extended Reporting (Benchmark Specific Measurement Reporting)
+### Extended Reporting (Benchmark Specific Measurement Reporting)
 
 Some benchmark classes (e.g., synthetic workloads) measure specific impacts on
 the platform. RT-Bench offers the possibility to extend the existing `.csv`
@@ -112,7 +110,7 @@ adding the `-DEXTENDED_REPORT` flag in the compilation command line.
 This feature cannot be controlled by the Makefile scaffolding since it's
 benchmark-specific.
 
-#### JSON configuration files support {#json_support}
+### JSON configuration files support {#json_support}
 
 To disable parsing of JSON files, which requires the
 [JSON-C](https://github.com/json-c/json-c) to be at least at version 0.15.
@@ -138,7 +136,7 @@ command. The same behavior can be achieved by, adding the
 `-DFEAT_SCHED_DEADLINE_SUPPORT=1` (enable) or `-DFEAT_SCHED_DEADLINE_SUPPORT=0`
 (disable) flag in the compilation command line.
 
-#### Performance counters and monitoring thread {#perf_support}
+### Performance counters and monitoring thread {#perf_support}
 
 RT-Bench supports monitoring the L1/L2 cache reference, refills, instruction
 retired and CPU clock cycles, however, this feature is CPU specific, requiring
