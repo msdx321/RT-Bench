@@ -124,7 +124,7 @@ endif
 CXXFLAGS:=$(CFLAGS)
 
 # RT-Bench core recipes
-.PHONY: default rtbench
+.PHONY: default rtbench init dlmalloc staticx-check create-obj-folder
 ## Add this recipe such that 'all' recipe in children makefile become the default one
 default: all
 ## Base recipe to build with the whole RT-Bench core!
@@ -149,10 +149,12 @@ else
 staticx-check:
 endif
 
-init: staticx-check dlmalloc
+init: create-obj-folder dlmalloc staticx-check
+
+create-obj-folder:
 	@mkdir -p $(OBJECT)
 
-dlmalloc:
+dlmalloc: create-obj-folder
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
