@@ -29,7 +29,7 @@ C_RESULT=$(BMARK_DIR)/result
 
 # Source files for C and Common folders
 
-BASE_SRC := $(wildcard $(BASE_DIR)/*.c)
+BASE_SRC := $(wildcard $(BASE_DIR)/*.c) $(wildcard $(BASE_DIR)/dlmalloc/source/*.c)
 C_SRC := $(wildcard $(C_DIR)/*.c)
 COMMON_SRC := $(wildcard $(COMMON_DIR)/*.c)
 
