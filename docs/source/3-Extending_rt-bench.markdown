@@ -28,6 +28,19 @@ To add a new benchmark set and integrate it with the other sets the following st
     The `generator/Makefile` will define the `CFLAGS` and `LDFLAGS` variables that have to be used in the compilation command line. 
     Both `CFLAGS` and `LDFLAGS` can be extended, by using the `override` and `+=` operator.
 
+    For [StaticX](#staticx) compilation to be supported, each Makefile rule has
+    to include two commands after the executable is generated:
+
+		```
+		$(STATICX_REQ)
+		$(STATICX_CMD) [executable name] [executable name].sx
+		```
+
+    `$(STATICX_REQ)` makes sure that a default virtual environment with all
+    Python dependencies is installed and active before using StaticX if the
+    executable is not on path. `$(STATICX_CMD)` contains the StaticX
+    commandline, which gets substituted by a printf if the feature is disabled
+
     See `IsolBench/Makefile` for an example.
 
 4. The benchmark set is to be described as a module in a .dox or .md file.

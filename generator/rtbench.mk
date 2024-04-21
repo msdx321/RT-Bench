@@ -1,8 +1,17 @@
+# force the shell to be bash
+SHELL:=bash
+.SHELLFLAGS := -eu -o pipefail -c
+# make sure all the commands run in the same shell
+.ONESHELL: #so that we stay in the same python virtualenv
+# check for staticx
+STATICX_PATH:=$(shell command -v staticx)
+
 # If no target compiler specified, compiled with default gcc
 CC ?= gcc
 
 # Paths
 CUR_DIR=$(strip $(dir $(abspath $(filter %rtbench.mk,$(MAKEFILE_LIST)))))
+PROJ_ROOT=$(CUR_DIR)/..
 OBJECT=$(CUR_DIR)/object/$(notdir $(CC))
 INCLUDE=$(CUR_DIR)/include
 SOURCE=$(CUR_DIR)/src
@@ -16,10 +25,10 @@ override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
 # Add linker's flags
 override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--no-as-needed
 
-#optional features 
+#optional features
 
 # #try to include a local config file with all the optional feature variables
-sinclude ../options.mk
+sinclude $(CUR_DIR)../options.mk
 
 # variables to avoid confusion between enabled and disabled features
 MACRO_FEAT_ENABLED=1
@@ -29,64 +38,119 @@ FEAT_DISABLED=n
 
 # deadline scheduler options
 ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_ENABLED))
+ $(info SCHED_DEADLINE support enabled)
  override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
 else
  ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_DISABLED))
+ $(info SCHED_DEADLINE support disabled)
   override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # perf counters options
 ifeq ($(FEAT_PERF),$(FEAT_ENABLED))
+ $(info Perf counters support enabled)
  override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_ENABLED)
  ifeq ($(CORE),CORTEX_A53)
+ $(info Using ARM Cortex A53 counters)
   override CFLAGS +=-D__aarch64__ -DCORTEX_A53
  endif
  ifeq ($(CORE),CORE_I7)
+ $(info Using Intel Core i7 counters)
   override CFLAGS +=-D__x86_64__ -DCORE_I7
  endif
 else
  ifeq ($(FEAT_PERF),$(FEAT_DISABLED))
+	$(info Perf counters support disabled)
   override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_DISABLED)
-	endif
+ endif
 endif
 
 # json parser options
 ifeq ($(FEAT_JSON),$(FEAT_ENABLED))
+ $(info JSON support enabled)
  override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_ENABLED)
  override LDFLAGS+=-ljson-c
 else
  ifeq ($(FEAT_JSON),$(FEAT_DISABLED))
-  override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
-	endif
+  $(info JSON support disabled)
+	override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
+ endif
 endif
 
 # Configure what to do with skipped deadlines
 ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_ENABLED))
+ $(info Print skipped deadlines enabled)
  override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
 else
  ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_DISABLED))
- override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
+	$(info Print skipped deadlines disabled)
+  override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # Check if extended report is desired
 ifeq ($(EXTENDED_REPORT),1)
-override CFLAGS+=-DEXTENDED_REPORT
+ $(info Extended report enabled)
+ override CFLAGS+=-DEXTENDED_REPORT
 endif
 
-CXXFLAGS=$(CFLAGS)
+ifeq ($(FEAT_GCC_STATIC),$(FEAT_ENABLED))
+ ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
+  $(error Gcc static compilation and staticx are mutually exclusive, please disable one of them)
+ else
+  $(info Gcc static compilation enabled)
+  $(info Make sure that all the libraries are available in static version)
+  $(info Check the documentation for more information about dependencies)
+  override LDFLAGS+=-static
+ endif
+else
+ ifeq ($(FEAT_GCC_STATIC),$(FEAT_DISABLED))
+  $(info Gcc static compilation disabled)
+ endif
+endif
+
+ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
+ #staticx command to pack all libraries in executable
+$(info Staticx enabled, dinamically linked libraries will be packed in the executable)
+ STATICX_CMD:=staticx
+else
+ STATICX_CMD:=@printf "Staticx disabled, %s will not be packed as %s\n"
+ ifeq ($(FEAT_STATICX),$(FEAT_DISABLED))
+  $(info Staticx disabled)
+ endif
+endif
+
+CXXFLAGS:=$(CFLAGS)
 
 # RT-Bench core recipes
-
 .PHONY: default rtbench
 ## Add this recipe such that 'all' recipe in children makefile become the defualt one
 default: all
-## Base recipe to build with the whole RT-Bench core! 
+## Base recipe to build with the whole RT-Bench core!
 rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp
 
-init:
-	mkdir -p $(OBJECT)
+# staticx target to setup the environment if staticx is enabled and not already on path
+ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
+## What to do if staticx is not already on path
+ifeq ($(STATICX_PATH),)
+$(info Staticx not found in path, installing it in a python virtualenv)
+$(warning Make sure that ldd, readelf, objcopy and patchelf are installed in path)
+# activate python venv if statix is not in path
+STATICX_REQ:=@source $(PROJ_ROOT)/.venv/bin/activate
+staticx-check:
+	@python -m venv $(PROJ_ROOT)/.venv
+	@source $(PROJ_ROOT)/.venv/bin/activate
+	@pip install -r $(PROJ_ROOT)/utils/python-dependencies
+else
+staticx-check:
+endif
+else
+staticx-check:
+endif
+
+init: staticx-check
+	@mkdir -p $(OBJECT)
 
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
 	$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)

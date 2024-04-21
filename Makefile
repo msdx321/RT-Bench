@@ -5,7 +5,7 @@ all:
 docs: setup-docs
 	make -C ${CURDIR}/docs
 
-clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils
+clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python
 
 setup: setup-docs setup-tacle setup-image-filters
 
@@ -75,6 +75,8 @@ clean-utils:
 	@echo 'Cleaning utils'
 	make -C ${CURDIR}/utils/ clean
 
+clean-python:
+	@rm -rf $(PROJ_ROOT)/.venv
 # benchmark suite groups
 
 # WCET group

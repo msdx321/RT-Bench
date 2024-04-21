@@ -11,7 +11,9 @@ docs/conf/doxygen-awesome
 .compile_commands.json
 .ctags
 *.o
+*.sx
 utils/overhead
 utils/get_fifo_max_prio
 *.csv
 *.log
+generator/src/dlmalloc/
