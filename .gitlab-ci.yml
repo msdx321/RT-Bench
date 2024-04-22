@@ -177,11 +177,15 @@ pages:
     # no artifacts needed for this job
     dependencies: []
     script:
-        - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
+        - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed tree
         - git fetch --all
         - git checkout dev/unstable #the dev/unstable branch has everything setup for this job
-        - cd docs/conf && bash make_html_docs.sh
+        - cd docs/conf
+        - bash make_html_docs.sh
         - cd ../../
+        - cd docs/html/branch
+        - tree . -L 1 -H '.' -T "$title" -I "reveal*|img*|style*|index*|content*" --noreport --charset utf-8 > ./index.html #make directory listing in branch folder
+        - cd ../../../
         - mv docs/html/ public/
     artifacts:
         paths:
