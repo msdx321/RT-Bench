@@ -15,9 +15,9 @@ make_docs() {
 		return
 	fi
 	# we need a fresh copy of the repository to avoid conflicts while checking out branches
-	git clone --quiet -b "$branch" --depth 1 --shallow-submodules https://gitlab.com/rt-bench/rt-bench.git "$DOCS_FOLDER"/../rt-bench-tmp || return
+	git clone -b "$branch" --depth 1 --shallow-submodules https://gitlab.com/rt-bench/rt-bench.git "$DOCS_FOLDER"/../rt-bench-tmp || return
 	cd "$DOCS_FOLDER"/../rt-bench-tmp || exit
-	DOCS_ONLY=1 make --quiet setup
+	DOCS_ONLY=1 make setup
 	cd docs || exit
 	# make sure all branches are built with the current doxygen configuration
 	cp -r "$CURRENT_CONF"/../Makefile . || exit
@@ -26,7 +26,7 @@ make_docs() {
 	sed -i "s|PROJECT_NUMBER\s*=.*|PROJECT_NUMBER=$branch|" conf/Doxyfile || exit
 	# remove the warnings
 	sed -i -e "s|WARNINGS\s*=.*|WARNINGS=NO|" -e "s|WARN_AS_ERROR\s=|WARN_AS_ERROR=NO|" conf/Doxyfile || exit
-	CURRENT_BRANCH="$branch" make --quiet html
+	CURRENT_BRANCH="$branch" make html
 	if [ -d html/"$folder_name" ]; then
 		mv html/"$folder_name" "$DOCS_FOLDER" || exit
 	else

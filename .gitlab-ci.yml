@@ -2,7 +2,6 @@
 image: ubuntu:rolling
 
 stages:
-    - docs
     - build
     - test
     - deploy
@@ -164,7 +163,7 @@ test-utils:
 
 #check if building documentation for the current branch has errors
 docs-test:
-    stage: docs
+    stage: build
     script:
         - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
         - DOCS_ONLY=1 make setup
@@ -173,7 +172,8 @@ docs-test:
 
 #rebuild the documentation of every branch when one branch gets updated
 pages:
-    stage: docs
+    stage: build
+    needs: ["docs-test"]
     # no artifacts needed for this job
     dependencies: []
     script:
