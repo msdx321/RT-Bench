@@ -184,7 +184,8 @@ pages:
         - bash make_html_docs.sh
         - cd ../../
         - cd docs/html/branch
-        - tree . -L 1 -H '.' -T "$title" -I "reveal*|img*|style*|index*|content*" --noreport --charset utf-8 > ./index.html #make directory listing in branch folder
+        - tree -F . -i -L 1 -H '' -T "RT-Bench versions" -I "reveal*|img*|style*|index*|content*" --noreport --charset utf-8 > ./index.html #make directory listing in branch folder
+        - sed -i 's/href="\//href="/' ./index.html
         - cd ../../../
         - mv docs/html/ public/
     artifacts:
