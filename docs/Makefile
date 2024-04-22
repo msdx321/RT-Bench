@@ -41,7 +41,7 @@ endif
 ifeq ("$(wildcard conf/doxyvers/selectversion.js)", "")
 	@git submodule update --init --recursive conf/doxyvers
 endif
-	@sed -i 's/let\surlroot\s=.*/let urlroot = "\/rt-bench"/' conf/doxyvers/selectversion.js
+	@sed -i 's/let\surlroot\s=.*/let urlroot = "\/branch"/' conf/doxyvers/selectversion.js
 	@sed -i 's/let\smaster\s=.*/let master = "main"/' conf/doxyvers/selectversion.js
 
 clean: clean-pdf clean-html
