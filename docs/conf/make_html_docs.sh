@@ -17,7 +17,7 @@ make_docs() {
 	# we need a fresh copy of the repository to avoid conflicts while checking out branches
 	git clone -b "$branch" --depth 1 --shallow-submodules https://gitlab.com/rt-bench/rt-bench.git "$DOCS_FOLDER"/../rt-bench-tmp || exit 255
 	cd "$DOCS_FOLDER"/../rt-bench-tmp || exit 255
-	DOCS_ONLY=1 make setup || exit 255
+	DOCS_ONLY=1 make setup
 	cd docs || exit 255
 	# make sure all branches are built with the current doxygen configuration
 	cp -r "$CURRENT_CONF"/../Makefile . || exit 255
