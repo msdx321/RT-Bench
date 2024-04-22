@@ -169,7 +169,8 @@ pages:
     script:
         - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
         - cd docs/conf && bash make_html_docs.sh
-        - mv ../html/ public/
+        - cd ../../
+        - mv docs/html/ public/
     artifacts:
         paths:
             - public
