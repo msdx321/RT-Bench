@@ -178,6 +178,8 @@ pages:
     dependencies: []
     script:
         - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
+        - git fetch --all
+        - git pull --all
         - git checkout dev/unstable #the dev/unstable branch has everything setup for this job
         - cd docs/conf && bash make_html_docs.sh
         - cd ../../
