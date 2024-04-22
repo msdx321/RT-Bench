@@ -1,7 +1,7 @@
 .PHONY: setup clean all
 
-CURRENT_BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-BRANCH_FOLDER = $(subst /,-,$(CURRENT_BRANCH))
+CURRENT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+BRANCH_FOLDER =$(subst +,plus,$(subst /,-,$(CURRENT_BRANCH)))
 
 all: html
 
@@ -41,8 +41,7 @@ endif
 ifeq ("$(wildcard conf/doxyvers/selectversion.js)", "")
 	@git submodule update --init --recursive conf/doxyvers
 endif
-	@sed -i 's/let\surlroot\s=.*/let urlroot = "\/branch"/' conf/doxyvers/selectversion.js
-	@sed -i 's/let\smaster\s=.*/let master = "main"/' conf/doxyvers/selectversion.js
+	@sed -i -e 's/let\surlroot\s=.*/let urlroot = "\/rt-bench\/branch"/' -e 's/let\smaster\s=.*/let master = "main"/' -e "s/let\sthisvers\s=.*/let thisvers=\"$(BRANCH_FOLDER)\"\;/" conf/doxyvers/selectversion.js
 
 clean: clean-pdf clean-html
 

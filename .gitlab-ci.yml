@@ -2,6 +2,7 @@
 image: ubuntu:rolling
 
 stages:
+    - docs
     - build
     - test
     - deploy
@@ -161,13 +162,23 @@ test-utils:
         #- apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git make sed bash binutils build-essential imagemagick && make compile-utils # TODO: needed for local gitlab-runner. Remove/comment after testing locally
         - echo "utils/overhead"; utils/overhead -p 1 -d 1 -t 1 -l 2 -o "output.csv";
 
-#rebuild the documentation every time there are commits on the main branch
+#check if building documentation for the current branch has errors
+docs-test:
+    stage: docs
+    script:
+        - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
+        - DOCS_ONLY=1 make setup
+        - cd docs
+        - make
+
+#rebuild the documentation of every branch when one branch gets updated
 pages:
-    stage: deploy
+    stage: docs
     # no artifacts needed for this job
     dependencies: []
     script:
         - apt-get -yq update && apt-get install -yq doxygen graphviz make git bash sed
+        - git checkout dev/unstable #the dev/unstable branch has everything setup for this job
         - cd docs/conf && bash make_html_docs.sh
         - cd ../../
         - mv docs/html/ public/
