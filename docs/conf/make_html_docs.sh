@@ -37,6 +37,8 @@ make_docs() {
 	rm -rf "$DOCS_FOLDER"/../rt-bench-tmp
 }
 
+# make sure we have all the refs
+git fetch --all
 # build docs for all branches
 git for-each-ref --format='%(refname:short)' refs/tags refs/remotes/origin | while read -r branch; do
 	# remove the origin/ prefix
