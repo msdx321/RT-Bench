@@ -32,10 +32,15 @@ struct execution_options {
   long period_sec;        ///< The period in seconds.
   long period_nsec;       ///<  The period in nanoseconds.
   char *output_path;      ///< Path where the execution info will be written.
-  size_t bytes_to_preallocate; ///< The heap memory that will be preallocated
-                               ///< and will act as a limit for dynamic memory
-                               ///< requested during the benchmark execution.
-  void *heap_address;          ///< The user specified address of the heap.
+  size_t
+      heap_size; ///< The heap memory that will  will act as a limit for dynamic
+                 ///< memory requested during the benchmark execution.
+  void *heap_address; ///< The user specified physical address of the heap,
+                      ///< cannot be used with `heap_file`.
+  const char *heap_file_path; ///< The user specified file for backing heap.
+                              ///< cannot be used with `heap_address`. No need
+                              ///< for deallocation here, it is the pointer
+                              ///< given as an argument.
   cpu_set_t
       core_affinity; ///< The core mask which will be used during the benchmark
                      ///< to set the core affinity. This mask can represent at

@@ -582,7 +582,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   elogf(LOG_LEVEL_TRACE, "Quit handler setup completed.\n");
 
-
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
   elogf(LOG_LEVEL_TRACE, "Initializing perf counters\n");
   res = setup_pmcs();
@@ -592,9 +591,9 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   elogf(LOG_LEVEL_TRACE, "Perf counters initialized\n");
 #endif
   elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
-  if (exec_opts->bytes_to_preallocate > 0) {
-    start_memory_watcher(exec_opts->bytes_to_preallocate,
-                         exec_opts->heap_address);
+  if (exec_opts->heap_size > 0) {
+    start_memory_watcher(exec_opts->heap_size, exec_opts->heap_address,
+                         exec_opts->heap_file_path);
   }
   res = benchmark_init(benchmark_param_num, benchmark_params);
   if (res < 0) {
