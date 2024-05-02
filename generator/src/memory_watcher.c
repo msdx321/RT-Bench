@@ -20,6 +20,13 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+/// The mask used to extract the present bit from a page table entry.
+#define PRES_MASK (1LL << 63)
+/// The mask used to extract the page frame number from a page table entry.
+#define PFN_MASK ((1LL << 55) - 1)
+
+typedef long long unsigned int u64;
+
 /// Enum used to determine the memory watcher states
 enum memory_watcher_states {
   MEMORY_WATCHER_DISABLED = 0, ///< The memory watcher is not enabled.
@@ -55,8 +62,10 @@ static struct memory_watcher_config {
        * `heap_size` length. This will be the address used
        * for allocations. */
       *mapping;
-  int fp;           ///< The file pointer that will back the heap.
+  int heap_fd,      ///< The file pointer that will back the heap.
+      pagemap_fd;   ///< The file pointer to the pagemap file.
   size_t heap_size; ///< The configured heap size. `0` if not configured.
+  pid_t pid;        ///< The process id of the benchmark.
 } memory_watcher_config = {
     .status = MEMORY_WATCHER_DISABLED,
     .initial_program_break = NULL,
@@ -64,8 +73,59 @@ static struct memory_watcher_config {
     .heap_start = NULL,
     .heap_size = 0,
     .mapping = NULL,
-    .fp = -1,
+    .heap_fd = -1,
+    .pagemap_fd = -1,
+    .pid = 0,
 };
+
+/** @brief Print the content of a page table entry.
+ * @param[in] map The page table entry to be printed.
+ * @details This function will print the raw value of the page table entry, the
+ * page frame number and the present bit.
+ */
+static void print_map(u64 map) {
+  elogf(LOG_LEVEL_TRACE, "\t Raw: 0x%016llx\n", map);
+  elogf(LOG_LEVEL_TRACE, "\t PFN: 0x%016llx\n", map & PFN_MASK);
+  elogf(LOG_LEVEL_TRACE, "\t Present: %d\n", !!(map & PRES_MASK));
+}
+
+/**
+ * @brief Translate a virtual address to a physical address.
+ * @param[in] vaddr The virtual address to be translated.
+ * @return 0 on success, -1 on failure.
+ * @details This function will use the pagemap file to translate a virtual
+ * address to a physical address.
+ * The offset in the pagemap file is calculated as `(vaddr >> 12) << 3`, since
+ * the page size is 4KB and each entry in the pagemap file is 8 bytes long.
+ * The page frame number is extracted from the pagemap entry and printed.
+ * The present bit is also printed.
+ * If the verbosity level is not `LOG_LEVEL_TRACE`, and memory watcher not
+ * enabled by using `/dev/mem` to back the heap the function will return
+ * immediately.
+ */
+static int translate_va(u64 vaddr) {
+  u64 map;
+  if (benchmark_verbosity < LOG_LEVEL_TRACE ||
+      memory_watcher_config.status != MEMORY_WATCHER_FIXED_HEAP) {
+    return 0;
+  }
+
+  if (lseek(memory_watcher_config.pagemap_fd, (vaddr >> 12) << 3, SEEK_SET) <
+      0) {
+    perror("Unable to lseek in pagemap file");
+    return -1;
+  }
+
+  if (read(memory_watcher_config.pagemap_fd, &map, 8) < 0) {
+    perror("Unable to read pagemap file");
+    return -1;
+  }
+
+  elogf(LOG_LEVEL_TRACE, "pointer info:\n");
+  print_map(map);
+
+  return 0;
+}
 
 /**
  * Memory preallocation is done via `mallopt()`, using `M_TOP_PAD`.
@@ -96,8 +156,11 @@ static struct memory_watcher_config {
  */
 void start_memory_watcher(size_t heap_size, void *heap_start,
                           const char *heap_file) {
+  char *file_buf;
   int res;
   size_t page_size = sysconf(_SC_PAGESIZE);
+  // get our pid
+  memory_watcher_config.pid = getpid();
   // hep size has to be incresead by the amount of memory that is not a multiple
   // of the page size, since we will map page aligned memory.
   heap_size = heap_size + (heap_size % page_size);
@@ -135,11 +198,12 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
         memory_watcher_config.status = MEMORY_WATCHER_ENABLED;
       } else {
         // open the file that will back the heap
-        memory_watcher_config.fp = open(heap_file, O_RDWR);
-        if (memory_watcher_config.fp < 0) {
+        memory_watcher_config.heap_fd = open(heap_file, O_RDWR);
+        if (memory_watcher_config.heap_fd < 0) {
           perror("Cannot open heap file to fix heap location, aborting.\n");
           exit(-1);
         }
+
         // map a region of `/dev/dem`, starting from `heap_start` and of size
         // `heap_size`
 
@@ -149,12 +213,14 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
 
         // Make the mapping aligned to the page size (just drop last 12
         // bits of heap_start and readd them mmap has returned).
-        memory_watcher_config.mapping = mmap(
-            NULL, heap_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-            memory_watcher_config.fp, ((off_t)heap_start & ~(page_size - 1)));
+        memory_watcher_config.mapping =
+            mmap(NULL, heap_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                 memory_watcher_config.heap_fd,
+                 ((off_t)heap_start & ~(page_size - 1)));
         if (memory_watcher_config.mapping == MAP_FAILED) {
           perror("Cannot mmap heap file to fix heap location, aborting.\n");
-          close(memory_watcher_config.fp);
+          close(memory_watcher_config.heap_fd);
+          close(memory_watcher_config.pagemap_fd);
           exit(-1);
         }
         // add the 12 bits that we masked to make the mapping page-aligned.
@@ -164,6 +230,17 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
             memory_watcher_config.mapping;
         if (strncmp(heap_file, "/dev/mem", 8) == 0) {
           memory_watcher_config.status = MEMORY_WATCHER_FIXED_HEAP;
+          // open the pagemap file to translate virtual addresses to physical
+          // ones
+          asprintf(&file_buf, "/proc/%d/pagemap", memory_watcher_config.pid);
+          if ((memory_watcher_config.pagemap_fd = open(file_buf, O_RDONLY)) <
+              0) {
+            free(file_buf);
+            close(memory_watcher_config.heap_fd);
+            perror("Unable to open pagemap file");
+            exit(-1);
+          }
+          free(file_buf);
           elogf(LOG_LEVEL_TRACE, "Fixed heap enabled.\n");
         } else {
           memory_watcher_config.status = MEMORY_WATCHER_FILE_HEAP;
@@ -216,9 +293,13 @@ void stop_memory_watcher() {
       if (res < 0) {
         perror("Cannot unmap heap file");
       }
-      res = close(memory_watcher_config.fp);
+      res = close(memory_watcher_config.heap_fd);
       if (res < 0) {
-        perror("Cannot close /dev/mem file pointer");
+        perror("Cannot close heap file descriptor");
+      }
+      res = close(memory_watcher_config.pagemap_fd);
+      if (res < 0) {
+        perror("Cannot close pagemap file descriptor");
       }
     }
     // stop the memory watcher
@@ -291,6 +372,10 @@ void *__wrap_malloc(size_t size) {
             current_program_break);
       exit(-1);
     }
+    if (translate_va((u64)pointer) < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
+      exit(-1);
+    }
   }
   elogf(LOG_LEVEL_TRACE, "wapper malloc done with pointer %p\n", pointer);
   return pointer;
@@ -355,6 +440,10 @@ void *__wrap_sbrk(intptr_t offset) {
         offset; // modify the current program break
     elogf(LOG_LEVEL_TRACE, "wrapped sbrk new program break%p\n",
           memory_watcher_config.fixed_heap_program_break);
+    if (translate_va((u64)memory_watcher_config.fixed_heap_program_break) < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
+      exit(-1);
+    }
     break;
   case MEMORY_WATCHER_DISABLED:
     pointer = __real_sbrk(offset);
@@ -397,6 +486,10 @@ extern void dlfree(void *ptr);
 void __wrap_free(void *ptr) {
   elogf(LOG_LEVEL_TRACE, "wrapped free\n");
   if (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP) {
+    if (translate_va((u64)ptr) < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", ptr);
+      exit(-1);
+    }
     dlfree(ptr);
   } else {
     __real_free(ptr);
