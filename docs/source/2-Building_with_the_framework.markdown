@@ -79,7 +79,7 @@ sudo dnf install json-c json-c-devel
 sudo pacman -S json-c
 ```
 
-##### Nix users
+#### Nix users
 
 For [Nix](https://nixos.org/) users, a flake and a [direnv](https://direnv.net/)
 environment are available to make sure that all the dependencies are satisfied.
@@ -124,7 +124,7 @@ features. These features are not part of the default set of features as they
 depend on the benchmark nature itself or on the platform on which the benchmarks
 will be deployed.
 
-#### Using the Makefile scaffolding to toggle optional features
+### Using the Makefile scaffolding to toggle optional features
 
 For each of the below features, there is a matching variable with can
 force-toggle the feature on or off, (consider as an example the JSON parser
