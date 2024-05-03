@@ -384,7 +384,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     break;
   case 'l':
     log_level = atoi(arg);
-    if (log_level >= LOG_LEVEL_ERR && log_level <= LOG_LEVEL_TRACE) {
+    if (log_level > LOG_LEVEL_MIN && log_level < LOG_LEVEL_MAX) {
       benchmark_verbosity = log_level;
     } else {
       argp_error(state, "Wrong log level supplied.");
@@ -659,7 +659,8 @@ int main(int argc, char **argv) {
     {"log-level", 'l', "log-lvl", 0,
      "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
      "Print benchmark stats to output file.\n3 - Print benchmark stats to "
-     "stdout.\n4 - Print also informative messages on stderr.\nDefault is 3."},
+     "stdout.\n4 - Print also informative messages on stderr.\n5 - Print also "
+     "additional debug information.\nDefault is 3."},
     {"output", 'o', "output_path", 0,
      "Where the info on the benchmark execution will be written. If not "
      "supplied, \"./timing.csv\" will be used."},
@@ -687,28 +688,26 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  if (benchmark_verbosity == LOG_LEVEL_TRACE) {
-    elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");
-    elogf(LOG_LEVEL_TRACE, "\targument number:%d\n", parsed_args.args_num);
-    elogf(LOG_LEVEL_TRACE, "\targuments:\n");
-    for (i = 0; i < parsed_args.args_num; i++) {
-      elogf(LOG_LEVEL_TRACE, "\t  %d - %s\n", i, parsed_args.args[i]);
-    }
-    elogf(LOG_LEVEL_TRACE, "\tdeadline:%.3g\n", parsed_args.parsed_deadline);
-    elogf(LOG_LEVEL_TRACE, "\tdeadline in seconds:%ld\n",
-          parsed_args.deadline_sec);
-    elogf(LOG_LEVEL_TRACE, "\tdeadline in nanoseconds:%ld\n",
-          parsed_args.deadline_nsec);
-    elogf(LOG_LEVEL_TRACE, "\tperiod:%.3g\n", parsed_args.parsed_period);
-    elogf(LOG_LEVEL_TRACE, "\tperiod in seconds:%ld\n", parsed_args.period_sec);
-    elogf(LOG_LEVEL_TRACE, "\tperiod in nanoseconds:%ld\n",
-          parsed_args.period_nsec);
-    elogf(LOG_LEVEL_TRACE, "\toutput path: %s\n", parsed_args.output_path);
-    elogf(LOG_LEVEL_TRACE, "\tmemory to preallocate (in bytes):%zu\n",
-          parsed_args.heap_size);
-    elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
-          parsed_args.heap_address);
+  elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");
+  elogf(LOG_LEVEL_TRACE, "\targument number:%d\n", parsed_args.args_num);
+  elogf(LOG_LEVEL_TRACE, "\targuments:\n");
+  for (i = 0; i < parsed_args.args_num; i++) {
+    elogf(LOG_LEVEL_TRACE, "\t  %d - %s\n", i, parsed_args.args[i]);
   }
+  elogf(LOG_LEVEL_TRACE, "\tdeadline:%.3g\n", parsed_args.parsed_deadline);
+  elogf(LOG_LEVEL_TRACE, "\tdeadline in seconds:%ld\n",
+        parsed_args.deadline_sec);
+  elogf(LOG_LEVEL_TRACE, "\tdeadline in nanoseconds:%ld\n",
+        parsed_args.deadline_nsec);
+  elogf(LOG_LEVEL_TRACE, "\tperiod:%.3g\n", parsed_args.parsed_period);
+  elogf(LOG_LEVEL_TRACE, "\tperiod in seconds:%ld\n", parsed_args.period_sec);
+  elogf(LOG_LEVEL_TRACE, "\tperiod in nanoseconds:%ld\n",
+        parsed_args.period_nsec);
+  elogf(LOG_LEVEL_TRACE, "\toutput path: %s\n", parsed_args.output_path);
+  elogf(LOG_LEVEL_TRACE, "\tmemory to preallocate (in bytes):%zu\n",
+        parsed_args.heap_size);
+  elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
+        parsed_args.heap_address);
 
   // benchmark initialization
   res = periodic_benchmark(&parsed_args);

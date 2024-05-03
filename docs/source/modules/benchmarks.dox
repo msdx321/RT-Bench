@@ -99,6 +99,7 @@ The configuration defined in a JSON file can be complemented or partially overri
   - `2`: Print benchmark stats to output file in csv format.
   - `3`: Print benchmark stats to `stdout` in csv format.
   - `4`: Print informative messages on `stdout` and debug messages on `stderr`.
+  - `5`: Print also additional debug level messages.
 
   Default is 3.
 

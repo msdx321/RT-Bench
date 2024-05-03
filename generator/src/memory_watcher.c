@@ -83,9 +83,9 @@ static struct memory_watcher_config {
  * page frame number and the present bit.
  */
 static void print_map(u64 map) {
-  elogf(LOG_LEVEL_TRACE, "\t Raw: 0x%016llx\n", map);
-  elogf(LOG_LEVEL_TRACE, "\t PFN: 0x%016llx\n", map & PFN_MASK);
-  elogf(LOG_LEVEL_TRACE, "\t Present: %d\n", !!(map & PRES_MASK));
+  elogf(LOG_LEVEL_DEBUG, "\t Raw: 0x%016llx\n", map);
+  elogf(LOG_LEVEL_DEBUG, "\t PFN: 0x%016llx\n", map & PFN_MASK);
+  elogf(LOG_LEVEL_DEBUG, "\t Present: %d\n", !!(map & PRES_MASK));
 }
 
 /**
@@ -98,13 +98,13 @@ static void print_map(u64 map) {
  * the page size is 4KB and each entry in the pagemap file is 8 bytes long.
  * The page frame number is extracted from the pagemap entry and printed.
  * The present bit is also printed.
- * If the verbosity level is not `LOG_LEVEL_TRACE` or the pagemap file has not
+ * If the verbosity level is not `LOG_LEVEL_DEBUG` or the pagemap file has not
  * been initialized, the function will return immediately.
  */
 static int translate_va(u64 vaddr) {
   u64 map;
 
-  if (benchmark_verbosity < LOG_LEVEL_TRACE ||
+  if (benchmark_verbosity < LOG_LEVEL_DEBUG ||
       memory_watcher_config.pagemap_fd <= 0) {
     return 0;
   }
@@ -120,7 +120,7 @@ static int translate_va(u64 vaddr) {
     return -1;
   }
 
-  elogf(LOG_LEVEL_TRACE, "pointer info:\n");
+  elogf(LOG_LEVEL_DEBUG, "pointer info:\n");
   print_map(map);
 
   return 0;
@@ -157,13 +157,6 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
                           const char *heap_file) {
   int res;
   size_t page_size = sysconf(_SC_PAGESIZE);
-  // open the pagemap file to translate virtual addresses to physical
-  // ones
-  if ((memory_watcher_config.pagemap_fd =
-           open("/proc/self/pagemap", O_RDONLY)) < 0) {
-    perror("Unable to open pagemap file");
-    exit(-1);
-  }
   // heap size has to be incresead by the amount of memory that is not a
   // multiple of the page size, since we will map page aligned memory.
   heap_size = heap_size + (heap_size % page_size);
@@ -265,6 +258,13 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
           heap_size);
     exit(-1);
   }
+  // open the pagemap file to translate virtual addresses to physical
+  // ones
+  if ((memory_watcher_config.pagemap_fd =
+           open("/proc/self/pagemap", O_RDONLY)) < 0) {
+    perror("Unable to open pagemap file");
+    exit(-1);
+  }
 }
 
 /**
@@ -311,10 +311,6 @@ void stop_memory_watcher() {
                            "memory watcher.\n");
       exit(-1);
     }
-
-  } else {
-    elogf(LOG_LEVEL_TRACE,
-          "Attempt to disable the memory watcher when it is not enabled.\n");
   }
 }
 
@@ -336,16 +332,16 @@ extern void *dlmalloc(size_t size);
  * call `exit(-1)`.
  */
 void *__wrap_malloc(size_t size) {
-  elogf(LOG_LEVEL_TRACE, "wapper malloc with size %zu\n", size);
+  elogf(LOG_LEVEL_DEBUG, "wapper malloc with size %zu\n", size);
   void *pointer = NULL, *current_program_break = NULL;
   void *(*malloc)(size_t) =
       (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP)
           ? dlmalloc
           : __real_malloc;
 
-  elogf(LOG_LEVEL_TRACE, "wrapped malloc mem watcher config status:%d \n",
+  elogf(LOG_LEVEL_DEBUG, "wrapped malloc mem watcher config status:%d \n",
         memory_watcher_config.status);
-  elogf(LOG_LEVEL_TRACE,
+  elogf(LOG_LEVEL_DEBUG,
         "wrapped malloc \t real_malloc address: %p, dlmalloc %p, selected:%p\n",
         __real_malloc, dlmalloc, malloc);
   pointer = (malloc)(size);
@@ -367,7 +363,7 @@ void *__wrap_malloc(size_t size) {
       exit(-1);
     }
   }
-  elogf(LOG_LEVEL_TRACE, "wapper malloc done with pointer %p\n", pointer);
+  elogf(LOG_LEVEL_DEBUG, "wapper malloc done with pointer %p\n", pointer);
   if (translate_va((u64)pointer) < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
     exit(-1);
@@ -403,7 +399,7 @@ extern void *__real_sbrk(intptr_t increment);
 /** @brief Wrapper for `sbrk()`, which will use the user defined heap.
  * */
 void *__wrap_sbrk(intptr_t offset) {
-  elogf(LOG_LEVEL_TRACE,
+  elogf(LOG_LEVEL_DEBUG,
         "wrapped sbrk with offset %ld, memory watcher status: %d\n", offset,
         memory_watcher_config.status);
   void *pointer = NULL;
@@ -430,7 +426,7 @@ void *__wrap_sbrk(intptr_t offset) {
     pointer = memory_watcher_config.fixed_heap_program_break;
     memory_watcher_config.fixed_heap_program_break +=
         offset; // modify the current program break
-    elogf(LOG_LEVEL_TRACE, "wrapped sbrk new program break %p\n",
+    elogf(LOG_LEVEL_DEBUG, "wrapped sbrk new program break %p\n",
           memory_watcher_config.fixed_heap_program_break);
     break;
   case MEMORY_WATCHER_DISABLED:
@@ -454,7 +450,7 @@ void *__wrap_sbrk(intptr_t offset) {
     break;
   }
 
-  elogf(LOG_LEVEL_TRACE, "wrapped sbrk done pointer:%p\n", pointer);
+  elogf(LOG_LEVEL_DEBUG, "wrapped sbrk done pointer:%p\n", pointer);
   if (translate_va((u64)memory_watcher_config.fixed_heap_program_break) < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
     exit(-1);
@@ -476,7 +472,7 @@ extern void dlfree(void *ptr);
  * location is fixed.
  */
 void __wrap_free(void *ptr) {
-  elogf(LOG_LEVEL_TRACE, "wrapped free for %p\n", ptr);
+  elogf(LOG_LEVEL_DEBUG, "wrapped free for %p\n", ptr);
   if (translate_va((u64)ptr) < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", ptr);
     exit(-1);
@@ -486,5 +482,5 @@ void __wrap_free(void *ptr) {
   } else {
     __real_free(ptr);
   }
-  elogf(LOG_LEVEL_TRACE, "wrapped free done\n");
+  elogf(LOG_LEVEL_DEBUG, "wrapped free done\n");
 }
