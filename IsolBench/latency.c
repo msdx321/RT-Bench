@@ -14,8 +14,8 @@
  * This allows the benchmark to be run periodically, by re-running only the
  * execution portion.
  *
- * @bug Enabling the `EXTENDED_REPORT` [feature](@ref #compilation) will lead to
- * a bus error if `/dev/mem` is used as heap backing
+ * @bug Enabling the `EXTENDED_REPORT` will lead to a bus error if `/dev/mem` is
+ * used as heap backing
  */
 
 // if the benchmark is built with the extended report, warn the user about file
