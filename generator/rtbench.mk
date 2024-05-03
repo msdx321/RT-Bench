@@ -3,12 +3,12 @@ SHELL:=bash
 .SHELLFLAGS := -eu -o pipefail -c
 # make sure all the commands run in the same shell
 .ONESHELL: #so that we stay in the same python virtualenv
+
 # check for staticx
 STATICX_PATH:=$(shell command -v staticx)
 
 # If no target compiler specified, compiled with default gcc
 CC ?= gcc
-
 # Paths
 CUR_DIR=$(strip $(dir $(abspath $(filter %rtbench.mk,$(MAKEFILE_LIST)))))
 PROJ_ROOT=$(CUR_DIR)/..
@@ -30,6 +30,12 @@ override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wra
 # #try to include a local config file with all the optional feature variables
 sinclude $(CUR_DIR)../options.mk
 
+#message to the user so that he knows what features are enabled
+$(info )
+$(info Features enabled:)
+$(info )
+$(info Using $(CC) as compiler)
+
 # variables to avoid confusion between enabled and disabled features
 MACRO_FEAT_ENABLED=1
 MACRO_FEAT_DISABLED=0
@@ -37,18 +43,18 @@ FEAT_ENABLED=y
 FEAT_DISABLED=n
 
 # deadline scheduler options
-ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_SCHED_DEADLINE)),$(FEAT_ENABLED))
  $(info SCHED_DEADLINE support enabled)
  override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
 else
- ifeq ($(FEAT_SCHED_DEADLINE),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_SCHED_DEADLINE)),$(FEAT_DISABLED))
  $(info SCHED_DEADLINE support disabled)
   override CFLAGS += -DFEAT_SCHED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # perf counters options
-ifeq ($(FEAT_PERF),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_PERF)),$(FEAT_ENABLED))
  $(info Perf counters support enabled)
  override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_ENABLED)
  ifeq ($(CORE),CORTEX_A53)
@@ -60,42 +66,42 @@ ifeq ($(FEAT_PERF),$(FEAT_ENABLED))
   override CFLAGS +=-D__x86_64__ -DCORE_I7
  endif
 else
- ifeq ($(FEAT_PERF),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_PERF)),$(FEAT_DISABLED))
 	$(info Perf counters support disabled)
   override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # json parser options
-ifeq ($(FEAT_JSON),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_JSON)),$(FEAT_ENABLED))
  $(info JSON support enabled)
  override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_ENABLED)
  override LDFLAGS+=-ljson-c
 else
- ifeq ($(FEAT_JSON),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_JSON)),$(FEAT_DISABLED))
   $(info JSON support disabled)
 	override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # Configure what to do with skipped deadlines
-ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_PRINT_SKIPPED_DEADLINE)),$(FEAT_ENABLED))
  $(info Print skipped deadlines enabled)
  override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
 else
- ifeq ($(FEAT_PRINT_SKIPPED_DEADLINE),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_PRINT_SKIPPED_DEADLINE)),$(FEAT_DISABLED))
 	$(info Print skipped deadlines disabled)
   override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
 # Check if extended report is desired
-ifeq ($(EXTENDED_REPORT),1)
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_EXTENDED_REPORT)),$(FEAT_ENABLED))
  $(info Extended report enabled)
- override CFLAGS+=-DEXTENDED_REPORT
+ override CFLAGS+=-DEXTENDED_REPORT_SUPPORT=$(MACRO_FEAT_ENABLED)
 endif
 
-ifeq ($(FEAT_GCC_STATIC),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_GCC_STATIC)),$(FEAT_ENABLED))
  ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
   $(error Gcc static compilation and staticx are mutually exclusive, please disable one of them)
  else
@@ -105,23 +111,26 @@ ifeq ($(FEAT_GCC_STATIC),$(FEAT_ENABLED))
   override LDFLAGS+=-static
  endif
 else
- ifeq ($(FEAT_GCC_STATIC),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_GCC_STATIC)),$(FEAT_DISABLED))
   $(info Gcc static compilation disabled)
  endif
 endif
 
-ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_STATICX)),$(FEAT_ENABLED))
  #staticx command to pack all libraries in executable
 $(info Staticx enabled, dinamically linked libraries will be packed in the executable)
  STATICX_CMD:=staticx
 else
  STATICX_CMD:=@printf "Staticx disabled, %s will not be packed as %s\n"
- ifeq ($(FEAT_STATICX),$(FEAT_DISABLED))
+ ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_STATICX)),$(FEAT_DISABLED))
   $(info Staticx disabled)
  endif
 endif
 
 CXXFLAGS:=$(CFLAGS)
+
+$(info )
+$(info )
 
 # RT-Bench core recipes
 .PHONY: default rtbench init dlmalloc staticx-check create-obj-folder

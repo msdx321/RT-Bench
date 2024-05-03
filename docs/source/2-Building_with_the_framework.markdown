@@ -156,7 +156,7 @@ Providing the benchmarks follow the rules mentioned in the
 structure](3-Extending_rt-bench.markdown), extended reporting can be enabled by
 adding the `-DEXTENDED_REPORT` flag in the compilation command line.
 
-This feature cannot be controlled by the Makefile scaffolding since it's
+This feature be controlled in a limited fashion by the Makefile scaffolding since it's
 benchmark-specific.
 
 ### JSON configuration files support {#json_support}

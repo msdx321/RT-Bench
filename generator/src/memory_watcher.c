@@ -10,6 +10,7 @@
  * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench
  * contributors. SPDX-License-Identifier: MIT
  */
+#define _FILE_OFFSET_BITS 64
 #include "memory_watcher.h"
 #include "logging.h"
 #include <errno.h>
@@ -65,7 +66,6 @@ static struct memory_watcher_config {
   int heap_fd,      ///< The file pointer that will back the heap.
       pagemap_fd;   ///< The file pointer to the pagemap file.
   size_t heap_size; ///< The configured heap size. `0` if not configured.
-  pid_t pid;        ///< The process id of the benchmark.
 } memory_watcher_config = {
     .status = MEMORY_WATCHER_DISABLED,
     .initial_program_break = NULL,
@@ -75,7 +75,6 @@ static struct memory_watcher_config {
     .mapping = NULL,
     .heap_fd = -1,
     .pagemap_fd = -1,
-    .pid = 0,
 };
 
 /** @brief Print the content of a page table entry.
@@ -99,14 +98,14 @@ static void print_map(u64 map) {
  * the page size is 4KB and each entry in the pagemap file is 8 bytes long.
  * The page frame number is extracted from the pagemap entry and printed.
  * The present bit is also printed.
- * If the verbosity level is not `LOG_LEVEL_TRACE`, and memory watcher not
- * enabled by using `/dev/mem` to back the heap the function will return
- * immediately.
+ * If the verbosity level is not `LOG_LEVEL_TRACE` or the pagemap file has not
+ * been initialized, the function will return immediately.
  */
 static int translate_va(u64 vaddr) {
   u64 map;
+
   if (benchmark_verbosity < LOG_LEVEL_TRACE ||
-      memory_watcher_config.status != MEMORY_WATCHER_FIXED_HEAP) {
+      memory_watcher_config.pagemap_fd <= 0) {
     return 0;
   }
 
@@ -156,13 +155,17 @@ static int translate_va(u64 vaddr) {
  */
 void start_memory_watcher(size_t heap_size, void *heap_start,
                           const char *heap_file) {
-  char *file_buf;
   int res;
   size_t page_size = sysconf(_SC_PAGESIZE);
-  // get our pid
-  memory_watcher_config.pid = getpid();
-  // hep size has to be incresead by the amount of memory that is not a multiple
-  // of the page size, since we will map page aligned memory.
+  // open the pagemap file to translate virtual addresses to physical
+  // ones
+  if ((memory_watcher_config.pagemap_fd =
+           open("/proc/self/pagemap", O_RDONLY)) < 0) {
+    perror("Unable to open pagemap file");
+    exit(-1);
+  }
+  // heap size has to be incresead by the amount of memory that is not a
+  // multiple of the page size, since we will map page aligned memory.
   heap_size = heap_size + (heap_size % page_size);
   void *dummy_alloc = NULL;
   // sanity check on the heap size
@@ -214,8 +217,8 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
         // Make the mapping aligned to the page size (just drop last 12
         // bits of heap_start and readd them mmap has returned).
         memory_watcher_config.mapping =
-            mmap(NULL, heap_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                 memory_watcher_config.heap_fd,
+            mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
+                 MAP_SHARED | MAP_POPULATE, memory_watcher_config.heap_fd,
                  ((off_t)heap_start & ~(page_size - 1)));
         if (memory_watcher_config.mapping == MAP_FAILED) {
           perror("Cannot mmap heap file to fix heap location, aborting.\n");
@@ -230,17 +233,6 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
             memory_watcher_config.mapping;
         if (strncmp(heap_file, "/dev/mem", 8) == 0) {
           memory_watcher_config.status = MEMORY_WATCHER_FIXED_HEAP;
-          // open the pagemap file to translate virtual addresses to physical
-          // ones
-          asprintf(&file_buf, "/proc/%d/pagemap", memory_watcher_config.pid);
-          if ((memory_watcher_config.pagemap_fd = open(file_buf, O_RDONLY)) <
-              0) {
-            free(file_buf);
-            close(memory_watcher_config.heap_fd);
-            perror("Unable to open pagemap file");
-            exit(-1);
-          }
-          free(file_buf);
           elogf(LOG_LEVEL_TRACE, "Fixed heap enabled.\n");
         } else {
           memory_watcher_config.status = MEMORY_WATCHER_FILE_HEAP;
@@ -285,6 +277,11 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
  */
 void stop_memory_watcher() {
   int res;
+  res = close(memory_watcher_config.pagemap_fd);
+  memory_watcher_config.pagemap_fd = -1;
+  if (res < 0) {
+    perror("Cannot close pagemap file descriptor");
+  }
   if (memory_watcher_config.status >= MEMORY_WATCHER_ENABLED) {
     elogf(LOG_LEVEL_TRACE, "Stopping memory watcher.\n");
     if (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP) {
@@ -296,10 +293,6 @@ void stop_memory_watcher() {
       res = close(memory_watcher_config.heap_fd);
       if (res < 0) {
         perror("Cannot close heap file descriptor");
-      }
-      res = close(memory_watcher_config.pagemap_fd);
-      if (res < 0) {
-        perror("Cannot close pagemap file descriptor");
       }
     }
     // stop the memory watcher
@@ -362,6 +355,7 @@ void *__wrap_malloc(size_t size) {
       perror("Cannot find the current program break.");
       exit(-1);
     }
+
     if (current_program_break != memory_watcher_config.initial_program_break) {
       free(pointer);
       elogf(LOG_LEVEL_ERR,
@@ -372,12 +366,12 @@ void *__wrap_malloc(size_t size) {
             current_program_break);
       exit(-1);
     }
-    if (translate_va((u64)pointer) < 0) {
-      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
-      exit(-1);
-    }
   }
   elogf(LOG_LEVEL_TRACE, "wapper malloc done with pointer %p\n", pointer);
+  if (translate_va((u64)pointer) < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
+    exit(-1);
+  }
   return pointer;
 }
 
@@ -417,33 +411,27 @@ void *__wrap_sbrk(intptr_t offset) {
   case MEMORY_WATCHER_FILE_HEAP:
   case MEMORY_WATCHER_FIXED_HEAP:
     // with a positive increment we need to check if the new program break is
-    // withing the heap maximum size
-    if (memory_watcher_config.heap_size > 0) {
-      if (memory_watcher_config.fixed_heap_program_break + offset <
-              memory_watcher_config.mapping ||
-          memory_watcher_config.fixed_heap_program_break + offset >
-              memory_watcher_config.mapping + memory_watcher_config.heap_size) {
-        elogf(LOG_LEVEL_ERR,
-              "sbrk heap modification (%ld bytes) would result in a wrong heap "
-              "size (%lu bytes, limit is %lu bytes), aborting.\n",
-              offset,
-              memory_watcher_config.fixed_heap_program_break + offset -
-                  memory_watcher_config.mapping,
-              memory_watcher_config.heap_size);
-        errno = ENOMEM;
-        pointer = (void *)-1;
-        break;
-      }
+    // within the heap maximum size
+    if (memory_watcher_config.fixed_heap_program_break + offset <
+            memory_watcher_config.mapping ||
+        memory_watcher_config.fixed_heap_program_break + offset >
+            memory_watcher_config.mapping + memory_watcher_config.heap_size) {
+      elogf(LOG_LEVEL_ERR,
+            "sbrk heap modification (%ld bytes) would result in a wrong heap "
+            "size (%lu bytes, limit is %lu bytes), aborting.\n",
+            offset,
+            memory_watcher_config.fixed_heap_program_break + offset -
+                memory_watcher_config.mapping,
+            memory_watcher_config.heap_size);
+      errno = ENOMEM;
+      pointer = (void *)-1;
+      break;
     }
     pointer = memory_watcher_config.fixed_heap_program_break;
     memory_watcher_config.fixed_heap_program_break +=
         offset; // modify the current program break
-    elogf(LOG_LEVEL_TRACE, "wrapped sbrk new program break%p\n",
+    elogf(LOG_LEVEL_TRACE, "wrapped sbrk new program break %p\n",
           memory_watcher_config.fixed_heap_program_break);
-    if (translate_va((u64)memory_watcher_config.fixed_heap_program_break) < 0) {
-      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
-      exit(-1);
-    }
     break;
   case MEMORY_WATCHER_DISABLED:
     pointer = __real_sbrk(offset);
@@ -467,6 +455,10 @@ void *__wrap_sbrk(intptr_t offset) {
   }
 
   elogf(LOG_LEVEL_TRACE, "wrapped sbrk done pointer:%p\n", pointer);
+  if (translate_va((u64)memory_watcher_config.fixed_heap_program_break) < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", pointer);
+    exit(-1);
+  }
   return pointer;
 }
 
@@ -484,12 +476,12 @@ extern void dlfree(void *ptr);
  * location is fixed.
  */
 void __wrap_free(void *ptr) {
-  elogf(LOG_LEVEL_TRACE, "wrapped free\n");
+  elogf(LOG_LEVEL_TRACE, "wrapped free for %p\n", ptr);
+  if (translate_va((u64)ptr) < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", ptr);
+    exit(-1);
+  }
   if (memory_watcher_config.status >= MEMORY_WATCHER_FIXED_HEAP) {
-    if (translate_va((u64)ptr) < 0) {
-      elogf(LOG_LEVEL_ERR, "Cannot translate pointer %p\n", ptr);
-      exit(-1);
-    }
     dlfree(ptr);
   } else {
     __real_free(ptr);

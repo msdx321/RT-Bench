@@ -13,7 +13,17 @@
  *
  * This allows the benchmark to be run periodically, by re-running only the
  * execution portion.
+ *
+ * @bug Enabling the `EXTENDED_REPORT` [feature](@ref #compilation) will lead to
+ * a bus error if `/dev/mem` is used as heap backing
  */
+
+// if the benchmark is built with the extended report, warn the user about file
+// creation
+#ifdef EXTENDED_REPORT
+#warning                                                                       \
+    "Extended report enabled. This creates incompatibilities with using /dev/mem to back the heap."
+#endif
 
 /* clang -S -mllvm --x86-asm-syntax=intel ./bandwidth.c */
 
@@ -90,8 +100,10 @@ unsigned int get_usecs() {
   return (time.tv_sec * 1000000 + time.tv_usec);
 }
 
+#ifdef EXTENDED_REPORT
 /** @brief Print bandwidth stats.
  * @param[in] param Unused.
+ * @details Function unused.
  * */
 void print_bandwidth(int param) {
   float dur_in_sec;
@@ -107,6 +119,7 @@ void print_bandwidth(int param) {
   flogf(LOG_LEVEL_FILE, bmark_output, "average = %.2f ns\n\n",
         (dur * 1000) / (g_nread / CACHE_LINE_SIZE));
 }
+#endif
 
 /** @brief Read memory access.
  * @returns Amount of memory read.
@@ -194,10 +207,12 @@ int benchmark_init(int parameters_num, void **parameters) {
       break;
     }
   }
+#ifdef EXTENDED_REPORT
   bmark_output = open_log_file("bandwidth.log");
   if (bmark_output == NULL) {
     return -1;
   }
+#endif
   /*
    * allocate contiguous region of memory
    */
@@ -206,16 +221,17 @@ int benchmark_init(int parameters_num, void **parameters) {
     elogf(LOG_LEVEL_ERR, "Failed to allocate memory\n");
     return -1;
   }
-
   memset((char *)g_mem_ptr, 1, g_mem_size);
 
   for (i = 0; i < g_mem_size / sizeof(int); i++)
     g_mem_ptr[i] = i;
 
+#ifdef EXTENDED_REPORT
   /* print experiment info before starting */
   flogf(LOG_LEVEL_FILE, bmark_output, "memsize=%d KB, type=%s\n",
         g_mem_size / 1024, ((acc_type == READ) ? "read" : "write"));
   flogf(LOG_LEVEL_FILE, bmark_output, "stop at %d iterations\n", iterations);
+#endif
 
   return 0;
 }
@@ -283,6 +299,8 @@ float benchmark_log_data() {
  * @details It will free `::g_mem_ptr`.
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
-  close_log_file(bmark_output);
+  if (bmark_output != NULL) {
+    close_log_file(bmark_output);
+  }
   free(g_mem_ptr);
 }

@@ -18,7 +18,7 @@
 
 #include <sched.h>
 
-// Warnings for the disabled optional features
+// Warnings for the optional features that might be troublesome
 #ifndef SCHED_DEADLINE_SUPPORT
 #warning "Scheudler SCHED_DEADLINE disabled."
 #endif
@@ -304,9 +304,11 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
   case 'H':
     if (arg != NULL) {
       if (arg[0] == '0' && arg[1] == 'x') {
+        elogf(LOG_LEVEL_TRACE, "using /dev/mem to back the heap\n");
         parsed_args->heap_address = (void *)strtoull(arg, NULL, 0);
         parsed_args->heap_file_path = "/dev/mem";
       } else {
+        elogf(LOG_LEVEL_TRACE, "using %s to back the heap\n", arg);
         parsed_args->heap_file_path = arg;
         parsed_args->heap_address = NULL;
       }

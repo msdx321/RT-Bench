@@ -13,7 +13,17 @@
  *
  * This allows the benchmark to be run periodically, by re-running only the
  * execution portion.
+ *
+ * @bug Enabling the `EXTENDED_REPORT` [feature](@ref #compilation) will lead to
+ * a bus error if `/dev/mem` is used as heap backing
  */
+
+// if the benchmark is built with the extended report, warn the user about file
+// creation
+#ifdef EXTENDED_REPORT
+#warning                                                                       \
+    "Extended report enabled. This creates incompatibilities with using /dev/mem to back the heap."
+#endif
 
 /**************************************************************************
  * Conditional Compilation Options
@@ -43,6 +53,7 @@
 #include "logging.h"
 #include "periodic_benchmark.h"
 #include <string.h>
+
 /**************************************************************************
  * Public Definitions
  **************************************************************************/
@@ -164,11 +175,13 @@ int benchmark_init(int parameters_num, void **parameters) {
       break;
     }
   }
+#ifdef EXTENDED_REPORT
   bmark_output = open_log_file("latency.log");
   if (bmark_output == NULL) {
     return -1;
   }
   flogf(LOG_LEVEL_FILE, bmark_output, "repeat=%d\n", repeat);
+#endif
   free(opts);
   workingset_size = g_mem_size / CACHE_LINE_SIZE;
   srand(0);
@@ -187,8 +200,10 @@ int benchmark_init(int parameters_num, void **parameters) {
     INIT_LIST_HEAD(&list[i].list);
     // printf("%d 0x%x\n", list[i].data, &list[i].data);
   }
+#ifdef EXTENDED_REPORT
   flogf(LOG_LEVEL_FILE, bmark_output, "allocated: wokingsetsize=%d entries\n",
         workingset_size);
+#endif
 
   /* initialize */
 
@@ -260,6 +275,7 @@ float benchmark_log_data() { return (float)avglat; }
  * @details It will free `::list`.
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
+#ifdef EXTENDED_REPORT
   uint64_t nsdiff;
   if (repeat == 0) {
     clock_gettime(CLOCK_REALTIME, &end);
@@ -274,6 +290,9 @@ void benchmark_teardown(int parameters_num, void **parameters) {
     flogf(LOG_LEVEL_FILE, bmark_output, "readsum  %lld\n\n",
           (unsigned long long)readsum);
   }
-  close_log_file(bmark_output);
+#endif
+  if (bmark_output != NULL) {
+    close_log_file(bmark_output);
+  }
   free(list);
 }
