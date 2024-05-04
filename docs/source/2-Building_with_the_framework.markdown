@@ -86,7 +86,7 @@ environment are available to make sure that all the dependencies are satisfied.
 The flake provides two development shells:
 - A default one, accessed by [direnv](https://direnv.net/) and by `nix develop
   .#` in the repo root with all dependencies satisfied for x86_64 systems.
-- An aarch64 cross compilation shells, accessed with `nix develop.#aarch64` in
+- An aarch64 cross compilation shells, accessed with `nix develop .#aarch64` in
   the repo root, that provides dependencies and `aarch64-unknown-linux-gnu-gcc`
   cross-compiler.
 

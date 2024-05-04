@@ -98,7 +98,7 @@ endif
 # Check if extended report is desired
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_EXTENDED_REPORT)),$(FEAT_ENABLED))
  $(info Extended report enabled)
- override CFLAGS+=-DEXTENDED_REPORT_SUPPORT=$(MACRO_FEAT_ENABLED)
+ override CFLAGS+=-DFEAT_EXTENDED_REPORT_SUPPORT=$(MACRO_FEAT_ENABLED)
 endif
 
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_GCC_STATIC)),$(FEAT_ENABLED))

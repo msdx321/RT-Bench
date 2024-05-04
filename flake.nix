@@ -1,20 +1,22 @@
 {
   description = "A reproducible environment for rt-bench";
   inputs = {
-    # pinnd version of nixpkgs for development dependencies
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    # pinned version of nixpkgs for development dependencies
     nixpkgs.url =
       "github:nixos/nixpkgs/888e0ce8350032a83abd621c6d3d341c5c954887";
     flake-parts.url = "github:hercules-ci/flake-parts";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
-      inputs = { nixpkgs.follows = "nixpkgs"; };
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
   };
-  outputs = inputs@{ self, nixpkgs, flake-parts, treefmt-nix, systems, ... }:
+  outputs = inputs@{ self, nixpkgs-unstable, nixpkgs, flake-parts, treefmt-nix
+    , systems, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports =
         [ inputs.treefmt-nix.flakeModule inputs.pre-commit-hooks.flakeModule ];
@@ -77,18 +79,15 @@
           in {
             default = pkgs.mkShell {
               name = "rt-bench";
-              nativeBuildInputs = native_packages
-                ++ [ pkgs.gcc pkgs.glibc pkgs.glibc.static pkgs.json_c ];
+              nativeBuildInputs = with pkgs;
+                [ stdenv gcc glibc glibc.static json_c ] ++ native_packages;
               STATICX_LDD = "${pkgs.glibc.bin}/bin/ldd";
             };
             aarch64 = pkgs.mkShell {
               name = "rt-bench-cross-aarch64";
-              nativeBuildInputs = [
-                pkgs-aarch64.buildPackages.gcc
-                pkgs-aarch64.glibc
-                pkgs-aarch64.glibc.static
-                pkgs-aarch64.json_c
-              ] ++ native_packages;
+              nativeBuildInputs = with pkgs-aarch64;
+                [ buildPackages.binutils buildPackages.stdenv.cc buildPackages.gcc glibc glibc.static json_c]
+                ++ native_packages;
               STATICX_LDD = "${pkgs-aarch64.glibc.bin}/bin/ldd";
               shellHook = ''
                 echo "Cross-compilation environment for aarch64"

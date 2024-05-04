@@ -28,7 +28,12 @@
 
 typedef long long unsigned int u64;
 
-/// Enum used to determine the memory watcher states
+/** @brief Enum used to determine the memory watcher states
+ *
+ * @bug When state is `::MEMORY_WATCHER_FIXED_HEAP` log levels higher than 
+ * `::LOG_LEVEL_FILE` might lead to a bus error due to unaligned accesses
+ * not being supported by `/dev/mem`.
+ */ 
 enum memory_watcher_states {
   MEMORY_WATCHER_DISABLED = 0, ///< The memory watcher is not enabled.
   MEMORY_WATCHER_ENABLED,      ///< The memory watcher is enabled.

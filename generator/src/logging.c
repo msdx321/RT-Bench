@@ -121,6 +121,8 @@ void print_timing(FILE *file, unsigned long long period_start_clocks,
     utilization = utilization_clocks;
   }
   switch (benchmark_verbosity) {
+  case LOG_LEVEL_MAX:
+  case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     if (job_end != 0) {
       printf("\nJob completed\n");
@@ -162,6 +164,7 @@ void print_timing(FILE *file, unsigned long long period_start_clocks,
         deadline_status, u, d);
     break;
   case LOG_LEVEL_ERR:
+  case LOG_LEVEL_MIN:
     break;
   }
 }
@@ -182,6 +185,8 @@ void print_performance_counters(
   double job_l1_miss_ratio = ((double)job_l1_miss) / ((double)job_l1_ref);
   double job_l2_miss_ratio = ((double)job_l2_miss) / ((double)job_l2_ref);
   switch (benchmark_verbosity) {
+  case LOG_LEVEL_MAX:
+  case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     printf("\nLevel 1 Data cache\n");
     printf("L1-D references/accesses: %lu\n", job_l1_ref);
@@ -207,12 +212,15 @@ void print_performance_counters(
            job_inst_retired, job_clock_count);
     break;
   case LOG_LEVEL_ERR:
+  case LOG_LEVEL_MIN:
     break;
   }
 }
 
 void print_extra_data(FILE *file, float extra_measurement) {
   switch (benchmark_verbosity) {
+  case LOG_LEVEL_MAX:
+  case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     printf("Extra benchmark metric: %f\n", extra_measurement);
     break;
@@ -223,6 +231,7 @@ void print_extra_data(FILE *file, float extra_measurement) {
     printf(",%f", extra_measurement);
     break;
   case LOG_LEVEL_ERR:
+  case LOG_LEVEL_MIN:
     break;
   }
 }
@@ -260,9 +269,11 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
   case LOG_LEVEL_INFO:
     printf("\n");
     break;
+  case LOG_LEVEL_MAX:
+  case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
   case LOG_LEVEL_ERR:
-  case LOG_LEVEL_DEBUG:
+  case LOG_LEVEL_MIN:
     break;
   }
 }
@@ -273,14 +284,14 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
  * 8601) of the current tun will be written.
  * */
 FILE *open_log_file(char *filename) {
-  FILE *bmark_output = fopen(filename, "a");
-  if (bmark_output != NULL) {
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    flogf(LOG_LEVEL_FILE, bmark_output,
-          "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
-          tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-  }
+  FILE *bmark_output= fopen(filename, "a");
+    if (bmark_output != NULL) {
+      time_t t = time(NULL);
+      struct tm tm = *localtime(&t);
+      flogf(LOG_LEVEL_FILE, bmark_output,
+            "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
+            tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    }
   return bmark_output;
 }
 
@@ -289,9 +300,9 @@ FILE *open_log_file(char *filename) {
  * */
 int close_log_file(FILE *file) {
   int res = 0;
-  res = fflush(file);
-  if (res != EOF) {
-    res = fclose(file);
-  }
+    res = fflush(file);
+    if (res != EOF) {
+      res = fclose(file);
+    }
   return res;
 }

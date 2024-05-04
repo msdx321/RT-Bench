@@ -18,13 +18,6 @@
  * `/dev/mem` is used as heap backing
  */
 
-// if the benchmark is built with the extended report, warn the user about file
-// creation
-#ifdef EXTENDED_REPORT
-#warning                                                                       \
-    "Extended report enabled. This creates incompatibilities with using /dev/mem to back the heap."
-#endif
-
 /* clang -S -mllvm --x86-asm-syntax=intel ./bandwidth.c */
 
 /**************************************************************************
@@ -54,6 +47,14 @@
 // Libraries used by rt-bench
 #include "logging.h"
 #include "periodic_benchmark.h"
+#include "optional_features.h"
+
+// if the benchmark is built with the extended report, warn the user about file
+// creation
+#ifdef EXTENDED_REPORT
+#warning                                                                       \
+    "Extended report enabled. This creates incompatibilities with using /dev/mem to back the heap."
+#endif
 
 /**************************************************************************
  * Public Definitions

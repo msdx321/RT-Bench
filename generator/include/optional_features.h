@@ -36,7 +36,8 @@
 #endif
 
 // tell the user if they are using the extended report version
-#if (defined EXTENDED_REPORT_SUPPORT == OPT_FEAT_ENABLED)
+#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                           \
+     FEAT_EXTENDED_REPORT_SUPPORT == OPT_FEAT_ENABLED)
 #define EXTENDED_REPORT
 #endif
 
