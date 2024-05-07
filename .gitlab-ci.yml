@@ -1,5 +1,5 @@
 # The docker image on which the pipelines will be executed
-image: ubuntu:rolling
+image: ubuntu:mantic
 
 stages:
     - build
