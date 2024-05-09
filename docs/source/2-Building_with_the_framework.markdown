@@ -154,10 +154,16 @@ report interface to include the desired _benchmark-specific_ measurement.
 Providing the benchmarks follow the rules mentioned in the
 [benchmark](3-Extending_rt-bench.markdown)[
 structure](3-Extending_rt-bench.markdown), extended reporting can be enabled by
-adding the `-DEXTENDED_REPORT` flag in the compilation command line.
+adding the `-DFEAT_EXTENDED_REPORT_SUPPORT=1` flag in the compilation command line or by setting the `FEAT_EXTENDED_REPORT` make variable to `1`.
 
 This feature be controlled in a limited fashion by the Makefile scaffolding since it's
 benchmark-specific.
+
+If some benchmarks have specific output, RT-Bench allows writing that output to
+a specific log file, called `::log_filep` via the `flogf()` macro. This file is
+automatically opened before the benchmark initialization and closed when the execution is about to finish if the `FEAT_BENCH_LOG_FILE` variable is set to `1` in the Makefile or if `-DFEAT_BMARK_LOG_FILE_SUPPORT=1` is added to the compilation command line. Conversely, this feature can be disabled by not passing the flag or setting the make variable to `0`.
+
+See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an example.
 
 ### JSON configuration files support {#json_support}
 

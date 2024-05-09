@@ -1,3 +1,7 @@
+#features enabled by default
+FEAT_BMARK_LOG_FILE ?= 1
+FEAT_EXTENDED_REPORT ?= 1
+
 include ../generator/rtbench.mk
 
 PGMS=bandwidth latency

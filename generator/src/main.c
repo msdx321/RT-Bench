@@ -243,7 +243,6 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
   int affinity_core;
   char *affinity_substr = NULL;
   unsigned long long tasks = 0;
-  char *output_extension = "";
   int arg_len = 0;
   errno = 0;
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
@@ -364,23 +363,18 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     break;
   case 'o':
     arg_len = strlen(arg);
-    int path_len = 0;
-    // add csv extension if needed
-    if (strcmp(arg + (arg_len - 4), ".csv") == 0) {
+    // remove extension if present, each output file will have its own extension
+    if (strstr(arg + (arg_len - 4), ".") != NULL) {
       parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
-      path_len = arg_len + 1;
-      output_extension = "";
     } else {
-      output_extension = ".csv";
-      parsed_args->output_path =
-          malloc(sizeof(char) * (arg_len + strlen(output_extension) + 1));
-      path_len = arg_len + strlen(output_extension) + 1;
+      parsed_args->output_path = malloc(sizeof(char) * arg_len - 3);
+      snprintf(parsed_args->output_path, sizeof(char) * (arg_len - 3), "%s",
+               arg);
     }
     if (parsed_args->output_path == NULL) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");
     }
-    snprintf(parsed_args->output_path, path_len, "%s%s", arg, output_extension);
     break;
   case 'l':
     log_level = atoi(arg);

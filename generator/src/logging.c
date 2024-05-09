@@ -5,7 +5,15 @@
  */
 
 #include "logging.h"
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+
+/// The file pointer to the log output file.
+FILE *log_filep = NULL;
+
+/// Default output path and filename for log information.
+#define DEFAULT_LOG_OUTPUT_PATH "./benchmark.log"
 
 /** @details
  * The benchmark verbosity should be initialized only in during the benchmark
@@ -278,31 +286,69 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
   }
 }
 
+/**
+ * @details
+ * The filename_prefix is used to create a filename with the following format:
+ * `filename_prefixfilename_suffix`. If the filename_prefix is not defined, the
+ * default filename will be used.
+ * The file is opened in append mode by default.
+ */
+FILE *open_output_file(char *default_filename, char *filename_prefix,
+                       char *filename_suffix, char *mode) {
+  size_t suffix_len, fname_len;
+  char *fname = NULL;
+  FILE *filep = NULL;
+  if (filename_prefix != NULL) {
+    suffix_len = strlen(filename_suffix) + 1;
+    fname_len = strlen(filename_prefix) + suffix_len + 1;
+    fname = malloc(sizeof(char) * fname_len);
+    memset(fname, 0, sizeof(char) * fname_len);
+    snprintf(fname, fname_len, "%s%s", filename_prefix, filename_suffix);
+  } else {
+    fname_len = strlen(default_filename) + 1;
+    fname = malloc(sizeof(char) * fname_len);
+    memset(fname, 0, sizeof(char) * fname_len);
+    snprintf(fname, fname_len, "%s", default_filename);
+  }
+  if (mode == NULL) {
+    mode = "a";
+    elogf(LOG_LEVEL_INFO, "File mode for %s not defined, using append mode\n",
+          fname);
+  }
+  filep = fopen(fname, mode);
+  free(fname);
+  if (filep == NULL) {
+    perror("Error opening file");
+  }
+  return filep;
+}
+
 /** @details
  * Creates a new log file or append to an already existing one, according to the
  * given filename. After the file has been opened/created the timestamp (in ISO
  * 8601) of the current tun will be written.
  * */
 FILE *open_log_file(char *filename) {
-  FILE *bmark_output= fopen(filename, "a");
-    if (bmark_output != NULL) {
-      time_t t = time(NULL);
-      struct tm tm = *localtime(&t);
-      flogf(LOG_LEVEL_FILE, bmark_output,
-            "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
-            tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-    }
+  FILE *bmark_output =
+      open_output_file(DEFAULT_LOG_OUTPUT_PATH, filename, ".log", "a");
+  if (bmark_output != NULL) {
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    flogf(LOG_LEVEL_FILE, bmark_output,
+          "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
+          tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+  }
   return bmark_output;
 }
 
 /** @details
  *  Flushes and closes the log file.
  * */
-int close_log_file(FILE *file) {
+int close_output_file(FILE *file) {
   int res = 0;
-    res = fflush(file);
-    if (res != EOF) {
-      res = fclose(file);
-    }
+  res = fflush(file);
+  if (res != EOF) {
+    res = fclose(file);
+  }
   return res;
 }

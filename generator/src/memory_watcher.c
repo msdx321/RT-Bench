@@ -30,10 +30,10 @@ typedef long long unsigned int u64;
 
 /** @brief Enum used to determine the memory watcher states
  *
- * @bug When state is `::MEMORY_WATCHER_FIXED_HEAP` log levels higher than 
+ * @bug When state is `::MEMORY_WATCHER_FIXED_HEAP` log levels higher than
  * `::LOG_LEVEL_FILE` might lead to a bus error due to unaligned accesses
  * not being supported by `/dev/mem`.
- */ 
+ */
 enum memory_watcher_states {
   MEMORY_WATCHER_DISABLED = 0, ///< The memory watcher is not enabled.
   MEMORY_WATCHER_ENABLED,      ///< The memory watcher is enabled.
@@ -265,10 +265,13 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
   }
   // open the pagemap file to translate virtual addresses to physical
   // ones
-  if ((memory_watcher_config.pagemap_fd =
-           open("/proc/self/pagemap", O_RDONLY)) < 0) {
-    perror("Unable to open pagemap file");
-    exit(-1);
+  if (benchmark_verbosity >= LOG_LEVEL_DEBUG) {
+    elogf(LOG_LEVEL_DEBUG, "Opening pagemap file.\n");
+    memory_watcher_config.pagemap_fd = open("/proc/self/pagemap", O_RDONLY);
+    if (memory_watcher_config.pagemap_fd < 0) {
+      perror("Unable to open pagemap file");
+      exit(-1);
+    }
   }
 }
 
@@ -282,10 +285,13 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
  */
 void stop_memory_watcher() {
   int res;
-  res = close(memory_watcher_config.pagemap_fd);
-  memory_watcher_config.pagemap_fd = -1;
-  if (res < 0) {
-    perror("Cannot close pagemap file descriptor");
+  if (memory_watcher_config.pagemap_fd != -1 &&
+      memory_watcher_config.status >= MEMORY_WATCHER_ENABLED) {
+    res = close(memory_watcher_config.pagemap_fd);
+    memory_watcher_config.pagemap_fd = -1;
+    if (res < 0) {
+      perror("Cannot close pagemap file descriptor");
+    }
   }
   if (memory_watcher_config.status >= MEMORY_WATCHER_ENABLED) {
     elogf(LOG_LEVEL_TRACE, "Stopping memory watcher.\n");
@@ -362,7 +368,7 @@ void *__wrap_malloc(size_t size) {
       elogf(LOG_LEVEL_ERR,
             "Memory allocation of %zu bytes has caused an heap "
             "extension.\ninitial program break: %p\ncurrent program "
-            "break:%p.\nExecution will be aborted.",
+            "break:%p.\nExecution will be aborted.\n",
             size, memory_watcher_config.initial_program_break,
             current_program_break);
       exit(-1);

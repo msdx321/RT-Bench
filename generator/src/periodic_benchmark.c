@@ -37,10 +37,11 @@
 #define SIGNAL_END_PERIOD SIGRTMIN + 1
 
 /// Default output path and filename for timing information.
-#define DEFAULT_OUTPUT_PATH "./timing.csv"
+#define DEFAULT_OUTPUT_PATH "./benchmark_timing.csv"
 
 /// Default output path and filename for performance counter runtime monitoring.
-#define DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH "./perf.csv"
+#define DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH                       \
+  "./benchmark_perf_profile.csv"
 
 /// Number of parameters passed to the benchmark.
 static int benchmark_param_num = 0;
@@ -140,10 +141,12 @@ static void stop_benchmark(int status, void *arg) {
   // Clean/free buffers
   for (size_t i = 0; i < benchmark_param_num; i++)
     free(benchmark_params[i]);
-  free(benchmark_params);
+  if (benchmark_params != NULL) {
+    free(benchmark_params);
+  }
   if (filep != NULL) {
     elogf(LOG_LEVEL_TRACE, "Closing output file\n");
-    res = fclose(filep);
+    res = close_output_file(filep);
     if (res == EOF) {
       perror("Error during output file close");
     }
@@ -160,13 +163,19 @@ static void stop_benchmark(int status, void *arg) {
           perror(
               "Error during the closing of the performance sampler thread\n");
         }
-        res = fclose(filep_sampler);
+        res = close_output_file(filep_sampler);
         if (res == EOF) {
           perror("Error during the closing of the performance counter "
                  "monitoring output file\n");
         }
       }
     }
+  }
+#endif
+#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
+    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
+  if (log_filep != NULL) {
+    close_output_file(log_filep);
   }
 #endif
   if (deadline_timer != NULL) {
@@ -471,9 +480,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   int job_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD};
   int quit_masked_signals_num = 3;
   int quit_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGINT};
-  // variables to handle timers
-  // variables used to handle the output file
-  char *fname;
   // status variables
   int res;
 
@@ -481,33 +487,9 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // Initialize the performance sampler thread
   if (exec_opts->memory_profiling_enable) {
     elogf(LOG_LEVEL_TRACE, "Initializing runtime performance sampling\n");
-    char *perf_fname = NULL;
-    const char *perf_fname_postfix = "_perf_profile";
-    int perf_fname_postfix_len, perf_fname_len;
-    char *fname_no_ext;
-    if (exec_opts->output_path != NULL) {
-      // write "_perf" before the .csv extension
-      perf_fname_postfix_len = strlen(perf_fname_postfix);
-      perf_fname_len =
-          strlen(exec_opts->output_path) + perf_fname_postfix_len + 1;
-      perf_fname = malloc(sizeof(char) * perf_fname_len);
-      memset(perf_fname, 0, sizeof(char) * perf_fname_len);
-      fname_no_ext =
-          malloc(sizeof(char) * (strlen(exec_opts->output_path) - 3));
-      snprintf(fname_no_ext,
-               sizeof(char) * (strlen(exec_opts->output_path) - 3), "%s",
-               exec_opts->output_path);
-      snprintf(perf_fname, perf_fname_len, "%s%s%s", fname_no_ext,
-               perf_fname_postfix, ".csv");
-      free(fname_no_ext);
-    } else {
-      perf_fname_len =
-          (1 + strlen(DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH));
-      perf_fname = malloc(sizeof(char) * perf_fname_len);
-      strcpy(perf_fname, DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH);
-    }
-    filep_sampler = fopen(perf_fname, "w");
-    free(perf_fname);
+    filep_sampler =
+        open_output_file(DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH,
+                         exec_opts->output_path, "_perf_profile.csv", "w+");
     res = setup_perf_sampler(exec_opts->tasks_to_launch,
                              exec_opts->memory_profiling_core_affinity,
                              exec_opts->memory_profiling_time_bucket);
@@ -540,12 +522,8 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   elogf(LOG_LEVEL_TRACE, "Execution environment setup complete\n");
   if (benchmark_verbosity == LOG_LEVEL_FILE) {
     elogf(LOG_LEVEL_TRACE, "Starting output file setup\n");
-    if (exec_opts->output_path == NULL) {
-      fname = DEFAULT_OUTPUT_PATH;
-    } else {
-      fname = exec_opts->output_path;
-    }
-    filep = fopen(fname, "w+");
+    filep = open_output_file(DEFAULT_OUTPUT_PATH, exec_opts->output_path,
+                             ".csv", "w+");
     char log_header[1024];
     memset(log_header, 0, 1024);
     strcat(log_header,
@@ -573,6 +551,14 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
     elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
   }
+#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
+    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
+  log_filep = open_log_file(exec_opts->output_path);
+  if (log_filep == NULL) {
+    elogf(LOG_LEVEL_ERR, "Error during log file setup\n");
+    return -1;
+  }
+#endif
   elogf(LOG_LEVEL_TRACE, "Job environment initialization complete\n");
 
   res = setup_signal(SIGINT, quit_handler, quit_masked_signals,
@@ -626,8 +612,8 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     // the deadline timer is created only if deadline and period differ
     if (exec_opts->parsed_deadline != exec_opts->parsed_period) {
       deadline_timer_status = DEADLINE_TIMER_IN_USE;
-      // the deadline timer is setup with 0 interval since it will be armed once
-      // a period starts
+      // the deadline timer is setup with 0 interval since it will be armed
+      // once a period starts
       res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0);
       if (res < 0) {
         return res;
@@ -653,8 +639,8 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // since timer will start shortly there are no previous jobs that are
   // executing we get the timestamp of the first period
   // This cycle will proceed infinitely if the user has not set a specific
-  // number of benchmarks to run or it will just terminate after having launched
-  // the specified amount of benchmarks.
+  // number of benchmarks to run or it will just terminate after having
+  // launched the specified amount of benchmarks.
   while (tasks_launched < exec_opts->tasks_to_launch ||
          exec_opts->tasks_to_launch == 0) {
     // we wait for the period to finish
@@ -698,12 +684,12 @@ int periodic_benchmark(struct execution_options *exec_opts) {
 #endif
     // we update the number of launched benchmarks
     tasks_launched++;
-    // if the period is 0, reporting happens as soon as the current job finished
-    // execution.
+    // if the period is 0, reporting happens as soon as the current job
+    // finished execution.
     if (exec_opts->period_nsec == 0 && exec_opts->period_sec == 0) {
-      // since we are not using the timer we manually set the next period start
-      // timestamp. in the continuous execution model the start of a new period
-      // coincides with the end of the job.
+      // since we are not using the timer we manually set the next period
+      // start timestamp. in the continuous execution model the start of a new
+      // period coincides with the end of the job.
       period_handler(-1, NULL, NULL);
     }
   }

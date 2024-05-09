@@ -15,6 +15,7 @@
 #include "optional_features.h"
 #include <inttypes.h>
 #include <sched.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /** @brief Struct used to hold the parsed arguments and options.

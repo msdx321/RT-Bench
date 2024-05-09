@@ -49,6 +49,9 @@ enum log_level {
 /// The benchmark verbosity.
 extern enum log_level benchmark_verbosity;
 
+/// Log file for the benchmark output (exported reference).
+extern FILE *log_filep;
+
 /** @brief General logging utility.
  * @param[in] mesg_log_level The log level of the message.
  * @param[in] file The file where the message must be printed.
@@ -56,10 +59,15 @@ extern enum log_level benchmark_verbosity;
  * @param[in] ... Parameters referenced by the format string.
  * @details This simple function will leverage `fprintf()` to print the given
  * message only if the `::benchmark_verbosity` is >= of the message log level.
+ *
+ * If the `file` parameter is `::log_filep` and it is NULL the function will do
+ * nothing to avoid printing errors the optional benchmark log file is not open.
  */
 #define flogf(mesg_log_level, file, format, ...)                               \
-  if (mesg_log_level <= benchmark_verbosity) {                                 \
-    fprintf(file, format, ##__VA_ARGS__);                                      \
+  if (&file != &log_filep || file != NULL) {                                   \
+    if (mesg_log_level <= benchmark_verbosity) {                               \
+      fprintf(file, format, ##__VA_ARGS__);                                    \
+    }                                                                          \
   }
 
 /** @brief Logging interface for `stdout`.
@@ -129,16 +137,31 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
                       long unsigned l2_miss_end, long unsigned inst_retired_end,
                       long unsigned clock_count_end, float extra_measurement);
 
-/** @brief Open a log file.
+/** @brief Open an output file with prefix and a suffix with a fallback name.
+ * @param[in] default_filename The default filename to use if the filename
+ * prefix is not defined.
+ * @param[in] filename_prefix The prefix to use for the filename, without the
+ * extension.
+ * @param[in] filename_suffix The suffix to use for the filename with the
+ * extension, will be joined to the prefix.
+ * @param[in] mode The mode to use for the file opening (given directly to
+ * fopen).
+ * @return The file pointer to the opened file or `NULL` if the file could not
+ * be opened.
+ */
+FILE *open_output_file(char *default_filename, char *filename_prefix,
+                       char *filename_suffix, char *mode);
+
+/** @brief Open a log file. Prefixing each run with the current date.
  * @param[in] filename The pathname (and extension) of the log file to open.
  * @returns A `FILE*` pointer or `NULL` in case or error, setting `errno`.
  */
 FILE *open_log_file(char *filename);
 
-/** @brief Closes a log file.
+/** @brief Closes an output file.
  * @param[in] file The file pointer of the log file to close.
  * @returns A `0` or `EOF` in case or error, setting `errno`.
  */
-int close_log_file(FILE *file);
+int close_output_file(FILE *file);
 
 #endif
