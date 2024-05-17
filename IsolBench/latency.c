@@ -87,8 +87,6 @@ struct timespec start, end;
 int repeat = DEFAULT_ITER;
 /// Working set size
 int workingset_size = 1024;
-/// Output log file
-FILE *bmark_output = NULL;
 /// Sum of the amount of read data.
 uint64_t readsum = 0;
 /// Average measured latency
@@ -171,7 +169,7 @@ int benchmark_init(int parameters_num, void **parameters) {
       break;
     }
   }
-  flogf(LOG_LEVEL_FILE, bmark_output, "repeat=%d\n", repeat);
+  flogf(LOG_LEVEL_FILE, log_filep, "repeat=%d\n", repeat);
   free(opts);
   workingset_size = g_mem_size / CACHE_LINE_SIZE;
   srand(0);
@@ -190,7 +188,7 @@ int benchmark_init(int parameters_num, void **parameters) {
     INIT_LIST_HEAD(&list[i].list);
     // printf("%d 0x%x\n", list[i].data, &list[i].data);
   }
-  flogf(LOG_LEVEL_FILE, bmark_output, "allocated: wokingsetsize=%d entries\n",
+  flogf(LOG_LEVEL_FILE, log_filep, "allocated: wokingsetsize=%d entries\n",
         workingset_size);
 
   /* initialize */
@@ -269,12 +267,12 @@ void benchmark_teardown(int parameters_num, void **parameters) {
 
     nsdiff = get_elapsed(&start, &end);
     avglat = (double)nsdiff / workingset_size / repeat;
-    flogf(LOG_LEVEL_FILE, bmark_output, "duration %.0f us\naverage %.2f ns | ",
+    flogf(LOG_LEVEL_FILE, log_filep, "duration %.0f us\naverage %.2f ns | ",
           (double)nsdiff / 1000, avglat);
-    flogf(LOG_LEVEL_FILE, bmark_output, "bandwidth %.2f MB (%.2f MiB)/s\n",
+    flogf(LOG_LEVEL_FILE, log_filep, "bandwidth %.2f MB (%.2f MiB)/s\n",
           (double)64 * 1000 / avglat,
           (double)64 * 1000000000 / avglat / 1024 / 1024);
-    flogf(LOG_LEVEL_FILE, bmark_output, "readsum  %lld\n\n",
+    flogf(LOG_LEVEL_FILE, log_filep, "readsum  %lld\n\n",
           (unsigned long long)readsum);
   }
   free(list);
