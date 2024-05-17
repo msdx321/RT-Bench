@@ -79,14 +79,14 @@ sudo dnf install json-c json-c-devel
 sudo pacman -S json-c
 ```
 
-##### Nix users
+#### Nix users
 
 For [Nix](https://nixos.org/) users, a flake and a [direnv](https://direnv.net/)
 environment are available to make sure that all the dependencies are satisfied.
 The flake provides two development shells:
 - A default one, accessed by [direnv](https://direnv.net/) and by `nix develop
   .#` in the repo root with all dependencies satisfied for x86_64 systems.
-- An aarch64 cross compilation shells, accessed with `nix develop.#aarch64` in
+- An aarch64 cross compilation shells, accessed with `nix develop .#aarch64` in
   the repo root, that provides dependencies and `aarch64-unknown-linux-gnu-gcc`
   cross-compiler.
 
@@ -124,7 +124,7 @@ features. These features are not part of the default set of features as they
 depend on the benchmark nature itself or on the platform on which the benchmarks
 will be deployed.
 
-#### Using the Makefile scaffolding to toggle optional features
+### Using the Makefile scaffolding to toggle optional features
 
 For each of the below features, there is a matching variable with can
 force-toggle the feature on or off, (consider as an example the JSON parser
@@ -154,10 +154,16 @@ report interface to include the desired _benchmark-specific_ measurement.
 Providing the benchmarks follow the rules mentioned in the
 [benchmark](3-Extending_rt-bench.markdown)[
 structure](3-Extending_rt-bench.markdown), extended reporting can be enabled by
-adding the `-DEXTENDED_REPORT` flag in the compilation command line.
+adding the `-DFEAT_EXTENDED_REPORT_SUPPORT=1` flag in the compilation command line or by setting the `FEAT_EXTENDED_REPORT` make variable to `1`.
 
-This feature cannot be controlled by the Makefile scaffolding since it's
+This feature be controlled in a limited fashion by the Makefile scaffolding since it's
 benchmark-specific.
+
+If some benchmarks have specific output, RT-Bench allows writing that output to
+a specific log file, called `::log_filep` via the `flogf()` macro. This file is
+automatically opened before the benchmark initialization and closed when the execution is about to finish if the `FEAT_BENCH_LOG_FILE` variable is set to `1` in the Makefile or if `-DFEAT_BMARK_LOG_FILE_SUPPORT=1` is added to the compilation command line. Conversely, this feature can be disabled by not passing the flag or setting the make variable to `0`.
+
+See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an example.
 
 ### JSON configuration files support {#json_support}
 

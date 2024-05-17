@@ -63,7 +63,11 @@ The configuration defined in a JSON file can be complemented or partially overri
 
     Without a magnitude modifier specified the value is assumed to be in bytes.
     0 means no memory limit, and it is the default setting.
-- `-H`, `--heap-location=0xdeadbeef` The location of the heap, requires mem-limit to be set. Make sure to have enough space for both the benchmark and malloc's data structures.
+- `-H`, `--heap-location=0xdeadbeef` `--heap-location=path/to/file` The location of the heap, requires mem-limit to be set.
+   Make sure to have enough space for both the benchmark and malloc's data structures.
+	 If the option is an hexadecimal value (i.e. starting with `0x`) then `/dev/mem` will be used to
+	 allocate the heap.
+     As an alternative to `/dev/mem` backing, the user can also provide a binary file by specifing its path.
 - `-t`, `--tasks-number=integer>=0` The number of tasks to be executed. 0 means
   until the program receives a `SIGINT`. Default is 0.
 
@@ -95,6 +99,7 @@ The configuration defined in a JSON file can be complemented or partially overri
   - `2`: Print benchmark stats to output file in csv format.
   - `3`: Print benchmark stats to `stdout` in csv format.
   - `4`: Print informative messages on `stdout` and debug messages on `stderr`.
+  - `5`: Print also additional debug level messages.
 
   Default is 3.
 

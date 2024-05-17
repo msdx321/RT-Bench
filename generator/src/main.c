@@ -1,5 +1,6 @@
 #include "periodic_benchmark.h"
 #include "sched_attr.h"
+
 #include <argp.h>
 #include <errno.h>
 #include <fenv.h>
@@ -11,11 +12,13 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+
 #include "logging.h"
 #include "optional_features.h"
+
 #include <sched.h>
 
-// Warnings for the disabled optional features
+// Warnings for the optional features that might be troublesome
 #ifndef SCHED_DEADLINE_SUPPORT
 #warning "Scheudler SCHED_DEADLINE disabled."
 #endif
@@ -235,12 +238,11 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
   double time_spec;
   long seconds, nanoseconds;
   struct execution_options *parsed_args = state->input;
-  size_t preallocation = 0;
-  char preallocation_magnitude = '\0';
+  size_t heap_size = 0;
+  char heap_size_magnitude = '\0';
   int affinity_core;
   char *affinity_substr = NULL;
   unsigned long long tasks = 0;
-  char *output_extension = "";
   int arg_len = 0;
   errno = 0;
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
@@ -273,34 +275,44 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     /* the argument should contain the number of bytes to preallocate and an
      * order of magnitude K for kilobytes, M for megabytes and G for gigabytes
      * e.g 1G = 1 gigabyte preallocated.*/
-    res = sscanf(arg, "%zu%1c", &preallocation, &preallocation_magnitude);
+    res = sscanf(arg, "%zu%1c", &heap_size, &heap_size_magnitude);
     if (res < 1 || res == EOF) {
       argp_failure(state, EXIT_FAILURE, errno,
-                   "Error during preallocation argument parsing");
+                   "Error during heap_size argument parsing");
     }
     res = 0;
     /*we convert the parsed value in bytes save it as an execution option.
      * breaks are omitted to obtain a proper conversion in bytes. */
-    switch (preallocation_magnitude) {
+    switch (heap_size_magnitude) {
     case 'g':
     case 'G':
-      preallocation *= 1024;
+      heap_size *= 1024;
     case 'm':
     case 'M':
-      preallocation *= 1024;
+      heap_size *= 1024;
     case 'k':
     case 'K':
-      preallocation *= 1024;
+      heap_size *= 1024;
     case '\0':
-      parsed_args->bytes_to_preallocate = preallocation;
+      parsed_args->heap_size = heap_size;
       break;
     default:
-      argp_error(state, "Preallocation magnitude invalid");
+      argp_error(state, "Heap size magnitude invalid");
     }
     break;
   case 'H':
-    parsed_args->heap_address = (void *)strtoull(arg, NULL, 0);
-    if (errno != 0) {
+    if (arg != NULL) {
+      if (arg[0] == '0' && arg[1] == 'x') {
+        elogf(LOG_LEVEL_TRACE, "using /dev/mem to back the heap\n");
+        parsed_args->heap_address = (void *)strtoull(arg, NULL, 0);
+        parsed_args->heap_file_path = "/dev/mem";
+      } else {
+        elogf(LOG_LEVEL_TRACE, "using %s to back the heap\n", arg);
+        parsed_args->heap_file_path = arg;
+        parsed_args->heap_address = NULL;
+      }
+    }
+    if (res < 0 || errno != 0) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Error during heap address parsing");
     }
@@ -351,27 +363,22 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     break;
   case 'o':
     arg_len = strlen(arg);
-    int path_len = 0;
-    // add csv extension if needed
-    if (strcmp(arg + (arg_len - 4), ".csv") == 0) {
+    // remove extension if present, each output file will have its own extension
+    if (strstr(arg + (arg_len - 4), ".") != NULL) {
       parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
-      path_len = arg_len + 1;
-      output_extension = "";
     } else {
-      output_extension = ".csv";
-      parsed_args->output_path =
-          malloc(sizeof(char) * (arg_len + strlen(output_extension) + 1));
-      path_len = arg_len + strlen(output_extension) + 1;
+      parsed_args->output_path = malloc(sizeof(char) * arg_len - 3);
+      snprintf(parsed_args->output_path, sizeof(char) * (arg_len - 3), "%s",
+               arg);
     }
     if (parsed_args->output_path == NULL) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");
     }
-    snprintf(parsed_args->output_path, path_len, "%s%s", arg, output_extension);
     break;
   case 'l':
     log_level = atoi(arg);
-    if (log_level >= LOG_LEVEL_ERR && log_level <= LOG_LEVEL_TRACE) {
+    if (log_level > LOG_LEVEL_MIN && log_level < LOG_LEVEL_MAX) {
       benchmark_verbosity = log_level;
     } else {
       argp_error(state, "Wrong log level supplied.");
@@ -385,7 +392,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
       res = sscanf(affinity_substr, "%d%*s", &affinity_core);
       if (res < 1 || res == EOF) {
         argp_failure(state, EXIT_FAILURE, errno,
-                     "Error during preallocation argument parsing");
+                     "Error during core affinity argument parsing");
       }
       res = 0;
       CPU_SET(affinity_core, &parsed_args->core_affinity);
@@ -525,10 +532,12 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
       argp_error(state,
                  "--sched-period must be provided for SCHED_DEADLINE policy.");
     }
-    if (parsed_args->heap_address != NULL &&
-        parsed_args->bytes_to_preallocate == 0) {
+    if (parsed_args->heap_address != NULL && parsed_args->heap_size == 0) {
       argp_error(state,
                  "using a specific heap address requires a memory limit");
+    }
+    if (parsed_args->heap_file_path != NULL && parsed_args->heap_size == 0) {
+      argp_error(state, "using a specific heap file requires a memory limit");
     }
 
     /* setup scheduling policies */
@@ -566,7 +575,7 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
  */
 int main(int argc, char **argv) {
   int res = 0, i;
-  struct execution_options parsed_args;
+  struct execution_options parsed_args = {0};
 
   // argp variables
   const char *argp_doc =
@@ -598,8 +607,12 @@ int main(int argc, char **argv) {
      "integer plus an optional magnitude modifier: K=kilobytes, M=megabytes, "
      "G=gigabytes. Without a magnitude modifier specified the value is assumed "
      "to be in bytes. 0 Means no limit, and it is the default setting."},
-    {"heap-location", 'H', "0xdeadbeef", 0,
-     "The location of the heap, requires mem-limit to be set. Make sure to have enough space for both the benchmark and malloc's data structures."},
+    {"heap-location", 'H', "0xdeadbeef or path/to/file", 0,
+     "The location of the heap, requires mem-limit to be set. "
+     "Make sure to have enough space for both the benchmark and malloc's data "
+     "structures. "
+     "It can be either a file or a physical address (in this case /dev/mem "
+     "will be used). "},
     {"tasks-number", 't', "integer>=0", 0,
      "The number of tasks to be executed. 0 means until the program receives a "
      "SIGINT. Default is 0."},
@@ -640,7 +653,8 @@ int main(int argc, char **argv) {
     {"log-level", 'l', "log-lvl", 0,
      "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
      "Print benchmark stats to output file.\n3 - Print benchmark stats to "
-     "stdout.\n4 - Print also informative messages on stderr.\nDefault is 3."},
+     "stdout.\n4 - Print also informative messages on stderr.\n5 - Print also "
+     "additional debug information.\nDefault is 3."},
     {"output", 'o', "output_path", 0,
      "Where the info on the benchmark execution will be written. If not "
      "supplied, \"./timing.csv\" will be used."},
@@ -668,28 +682,26 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  if (benchmark_verbosity == LOG_LEVEL_TRACE) {
-    elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");
-    elogf(LOG_LEVEL_TRACE, "\targument number:%d\n", parsed_args.args_num);
-    elogf(LOG_LEVEL_TRACE, "\targuments:\n");
-    for (i = 0; i < parsed_args.args_num; i++) {
-      elogf(LOG_LEVEL_TRACE, "\t  %d - %s\n", i, parsed_args.args[i]);
-    }
-    elogf(LOG_LEVEL_TRACE, "\tdeadline:%.3g\n", parsed_args.parsed_deadline);
-    elogf(LOG_LEVEL_TRACE, "\tdeadline in seconds:%ld\n",
-          parsed_args.deadline_sec);
-    elogf(LOG_LEVEL_TRACE, "\tdeadline in nanoseconds:%ld\n",
-          parsed_args.deadline_nsec);
-    elogf(LOG_LEVEL_TRACE, "\tperiod:%.3g\n", parsed_args.parsed_period);
-    elogf(LOG_LEVEL_TRACE, "\tperiod in seconds:%ld\n", parsed_args.period_sec);
-    elogf(LOG_LEVEL_TRACE, "\tperiod in nanoseconds:%ld\n",
-          parsed_args.period_nsec);
-    elogf(LOG_LEVEL_TRACE, "\toutput path: %s\n", parsed_args.output_path);
-    elogf(LOG_LEVEL_TRACE, "\tmemory to preallocate (in bytes):%zu\n",
-          parsed_args.bytes_to_preallocate);
-    elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
-          parsed_args.heap_address);
+  elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");
+  elogf(LOG_LEVEL_TRACE, "\targument number:%d\n", parsed_args.args_num);
+  elogf(LOG_LEVEL_TRACE, "\targuments:\n");
+  for (i = 0; i < parsed_args.args_num; i++) {
+    elogf(LOG_LEVEL_TRACE, "\t  %d - %s\n", i, parsed_args.args[i]);
   }
+  elogf(LOG_LEVEL_TRACE, "\tdeadline:%.3g\n", parsed_args.parsed_deadline);
+  elogf(LOG_LEVEL_TRACE, "\tdeadline in seconds:%ld\n",
+        parsed_args.deadline_sec);
+  elogf(LOG_LEVEL_TRACE, "\tdeadline in nanoseconds:%ld\n",
+        parsed_args.deadline_nsec);
+  elogf(LOG_LEVEL_TRACE, "\tperiod:%.3g\n", parsed_args.parsed_period);
+  elogf(LOG_LEVEL_TRACE, "\tperiod in seconds:%ld\n", parsed_args.period_sec);
+  elogf(LOG_LEVEL_TRACE, "\tperiod in nanoseconds:%ld\n",
+        parsed_args.period_nsec);
+  elogf(LOG_LEVEL_TRACE, "\toutput path: %s\n", parsed_args.output_path);
+  elogf(LOG_LEVEL_TRACE, "\tmemory to preallocate (in bytes):%zu\n",
+        parsed_args.heap_size);
+  elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
+        parsed_args.heap_address);
 
   // benchmark initialization
   res = periodic_benchmark(&parsed_args);
