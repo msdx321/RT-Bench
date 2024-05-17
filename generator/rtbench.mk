@@ -67,7 +67,7 @@ ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_PERF)),$(FEAT_ENABLED))
  endif
 else
  ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_PERF)),$(FEAT_DISABLED))
-	$(info Perf counters support disabled)
+  $(info Perf counters support disabled)
   override CFLAGS += -DFEAT_PERF_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
@@ -80,7 +80,7 @@ ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_JSON)),$(FEAT_ENABLED))
 else
  ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_JSON)),$(FEAT_DISABLED))
   $(info JSON support disabled)
-	override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
+  override CFLAGS+=-DFEAT_JSON_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
 
@@ -90,7 +90,7 @@ ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_PRINT_SKIPPED_DEADLINE)),$(FEAT_ENABLED))
  override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_ENABLED)
 else
  ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_PRINT_SKIPPED_DEADLINE)),$(FEAT_DISABLED))
-	$(info Print skipped deadlines disabled)
+  $(info Print skipped deadlines disabled)
   override CFLAGS += -DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=$(MACRO_FEAT_DISABLED)
  endif
 endif
