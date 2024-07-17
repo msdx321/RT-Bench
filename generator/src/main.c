@@ -365,12 +365,11 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     arg_len = strlen(arg);
     // remove extension if present, each output file will have its own extension
     if (strstr(arg + (arg_len - 4), ".") != NULL) {
-      parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
-    } else {
-      parsed_args->output_path = malloc(sizeof(char) * arg_len - 3);
-      snprintf(parsed_args->output_path, sizeof(char) * (arg_len - 3), "%s",
-               arg);
+			arg_len = arg_len-4; // remove the extension
     }
+      parsed_args->output_path = malloc(sizeof(char) * arg_len+1);
+      snprintf(parsed_args->output_path, sizeof(char) * arg_len+1, "%s",
+               arg);
     if (parsed_args->output_path == NULL) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");

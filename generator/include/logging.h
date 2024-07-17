@@ -76,7 +76,7 @@ extern FILE *log_filep;
  * @param[in] ... The format string parameters.
  * @details A `flogf()` wrapper to easily print messages on `stdout`.
  */
-#define logf(mesg_log_level, format, ...)                                      \
+#define ologf(mesg_log_level, format, ...)                                     \
   flogf(mesg_log_level, stdout, format, ##__VA_ARGS__)
 
 /** @brief Logging interface for `stderr`.
