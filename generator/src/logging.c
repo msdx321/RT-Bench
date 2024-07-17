@@ -298,22 +298,17 @@ FILE *open_output_file(char *default_filename, char *filename_prefix,
   size_t suffix_len, fname_len;
   char *fname = NULL;
   FILE *filep = NULL;
-		printf("default output filename: %s\n",default_filename);
-		printf("opening file perfix: %s\n",filename_prefix);
-		printf("opening file suffix: %s\n",filename_suffix);
   if (filename_prefix != NULL) {
     suffix_len = strlen(filename_suffix) + 1;
     fname_len = strlen(filename_prefix) + suffix_len + 1;
     fname = malloc(sizeof(char) * fname_len);
     memset(fname, 0, sizeof(char) * fname_len);
     snprintf(fname, fname_len, "%s%s", filename_prefix, filename_suffix);
-		printf("opening file: %s\n",fname);
   } else {
     fname_len = strlen(default_filename) + 1;
     fname = malloc(sizeof(char) * fname_len);
     memset(fname, 0, sizeof(char) * fname_len);
     snprintf(fname, fname_len, "%s", default_filename);
-		printf("opening file: %s\n",default_filename);
   }
   if (mode == NULL) {
     mode = "a";
