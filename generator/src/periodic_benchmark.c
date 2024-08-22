@@ -520,6 +520,17 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
   }
   elogf(LOG_LEVEL_TRACE, "Execution environment setup complete\n");
+#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
+    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
+  if (benchmark_verbosity >= LOG_LEVEL_ERR) {
+    log_filep = open_log_file(exec_opts->output_path);
+    elogf(LOG_LEVEL_TRACE, "Opened Log file\n");
+    if (log_filep == NULL) {
+      elogf(LOG_LEVEL_ERR, "Error during log file setup\n");
+      return -1;
+    }
+  }
+#endif
   if (benchmark_verbosity == LOG_LEVEL_FILE) {
     elogf(LOG_LEVEL_TRACE, "Starting output file setup\n");
     filep = open_output_file(DEFAULT_OUTPUT_PATH, exec_opts->output_path,
@@ -540,14 +551,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
 #ifdef EXTENDED_REPORT
     strcat(log_header, benchmark_log_header());
 #endif
-#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
-    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
-  log_filep = open_log_file(exec_opts->output_path);
-  if (log_filep == NULL) {
-    elogf(LOG_LEVEL_ERR, "Error during log file setup\n");
-    return -1;
-  }
-#endif
     strcat(log_header, "\n");
     fprintf(filep, "%s", log_header);
     if (exec_opts->output_path != NULL) {
@@ -559,8 +562,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
     elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
   }
-  elogf(LOG_LEVEL_TRACE, "Job environment initialization complete\n");
-
   res = setup_signal(SIGINT, quit_handler, quit_masked_signals,
                      quit_masked_signals_num);
   if (res < 0) {

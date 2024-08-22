@@ -61,7 +61,8 @@ extern FILE *log_filep;
  * message only if the `::benchmark_verbosity` is >= of the message log level.
  *
  * If the `file` parameter is `::log_filep` and it is NULL the function will do
- * nothing to avoid printing errors the optional benchmark log file is not open.
+ * nothing to avoid printing errors when the optional benchmark log file is not
+ * open.
  */
 #define flogf(mesg_log_level, file, format, ...)                               \
   if (&file != &log_filep || file != NULL) {                                   \

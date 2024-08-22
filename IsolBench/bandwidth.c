@@ -212,6 +212,7 @@ int benchmark_init(int parameters_num, void **parameters) {
   flogf(LOG_LEVEL_FILE, log_filep, "memsize=%d KB, type=%s\n",
         g_mem_size / 1024, ((acc_type == READ) ? "read" : "write"));
   flogf(LOG_LEVEL_FILE, log_filep, "stop at %d iterations\n", iterations);
+  flogf(LOG_LEVEL_FILE, log_filep, "buffer VA: %p\n", g_mem_ptr);
 
   return 0;
 }
