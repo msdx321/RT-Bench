@@ -228,8 +228,24 @@ behavior can be achieved by, adding the
 `-DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=0` (disable) flag in the compilation
 command line.
 
+#### Synchronised start
 
-#### Static Copilation
+RT-Bench offers a mechanism to synchronise the start of multiple benchmarks. The
+user can customise the initial delay before the start of first period for all
+benchmarks by using the `SYNCH_DELAY_REL_SEC=[delay in sec]` and
+`SYNCH_DELAY_REL_NSEC=[delay in nanoseconds]` variables while issuing a make
+command. The same behavior can be achieved by, adding the
+`-DSYNCH_DELAY_REL_SEC=[delay in sec]` and `-DSYNCH_DELAY_REL_NSEC=[delay in
+nanoseconds]` flags in the compilation command line.
+
+The resulting delay will be the sum of the values in the two variables mentioned
+above. The default value for these variable is specified in
+`::SYNCH_DELAY_REL_SEC` and `::SYNCH_DELAY_REL_NSEC`.
+
+Finally is also possible to specify only one of these variables if the uses
+wishes so.
+
+#### Static Compilation
 
 For systems that cannot met the [core dependencies](#core-deps) due to version constraints
 but can meet the [system dependencies](#sys-deps) RT-Bench provides two optional ways to get

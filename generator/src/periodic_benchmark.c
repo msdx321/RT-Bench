@@ -1,6 +1,7 @@
 /** @file periodic_benchmark.c
  * @ingroup generator
- * @brief Implementation of a general periodic benchmark using real time timers.
+ * @brief Implementation of a general periodic benchmark using real time
+ * timers.
  * @details Timer expiration triggers a real time POSIX signal and `SIGINT` is
  * used to stop the benchmark and terminate the program.
  * @author Mattia Nicolella
@@ -8,8 +9,8 @@
  * **Dependencies**:
  * - POSIX.4 real-time signals.
  *
- * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench
- * contributors. SPDX-License-Identifier: MIT
+ * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the
+ * rt-bench contributors. SPDX-License-Identifier: MIT
  */
 
 #include "periodic_benchmark.h"
@@ -19,11 +20,14 @@
 #include "performance_counters.h"
 #include "performance_sampler.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <time.h>
 
 /// This value in `::deadline_timer_status` determines that the deadline timer
@@ -124,6 +128,59 @@ static struct perf_counters job_perf_counters_end;
 /// Extra benchmark dependant measured data.
 static float extra_measurement = 0.0f;
 
+/// Struct that contains the parameters for the benchmark synchronised start.
+static struct synch_params_t {
+  char *shm_name, ///< The name of the shared memory.
+      *sem_name;  ///< The name of the named semaphore.
+  int fd;         ///< The file descriptor of the shared memory.
+  sem_t *sem;     ///< The semaphore used for init synchronisation.
+  /// The shared memory used to synchornise the benchmark group
+  struct shm {
+    struct timespec timer_initial_delay; ///< The initial delay of the
+                                         ///< timer.
+    pid_t unblocker_pid; ///< The pid of the process responsible for
+                         ///< unblocking the group
+  } *shm;
+} synch_params = {0};
+
+/// Deallocate shared resources for synchronised benchmark start.
+static void deallocate_synch_resources() {
+  int res;
+  if (synch_params.sem_name != NULL) {
+    if (synch_params.sem != NULL) {
+      res = sem_close(synch_params.sem);
+      if (res < 0) {
+        perror("Error during synchronisation semaphore deallocation");
+      }
+    }
+    res = sem_unlink(synch_params.sem_name);
+    if (res < 0) {
+      perror("Error during synchronisation semaphore unlinking");
+    }
+    free(synch_params.sem_name);
+  }
+  if (synch_params.shm != NULL) {
+    res = munmap(&(synch_params.shm->timer_initial_delay),
+                 sizeof(struct timespec));
+    if (res < 0) {
+      perror("Error during synchronisation shared memory unmapping");
+    }
+  }
+  if (synch_params.fd >= 0) {
+    res = close(synch_params.fd);
+    if (res < 0) {
+      perror("Error during shared memory file descriptor deallocation");
+    }
+  }
+  if (synch_params.shm_name != NULL) {
+    res = shm_unlink(synch_params.shm_name);
+    if (res < 0) {
+      perror("Error during shared memory unlinking");
+    }
+    free(synch_params.shm_name);
+  }
+}
+
 /**
  * @brief Teardown function registered to be called when exit is called.
  * @param[in] status The exit status.
@@ -203,6 +260,8 @@ static void stop_benchmark(int status, void *arg) {
         "Error: performance counters file descriptors could not be closed\n");
   }
 #endif
+  elogf(LOG_LEVEL_TRACE, "Freeing synch resources\n");
+  deallocate_synch_resources();
 }
 
 /**
@@ -251,16 +310,16 @@ static void deadline_handler(int signo, siginfo_t *info, void *context) {
  * @details
  * When the period expires and the job has terminated its execution, the
  * deadline timer is rearmed, the job's stats are reported, the semaphore is
- * unlocked and the reporting variables are reset. The start of the next period
- * matches with the end of the previous period. The next job starts as soon as
- * the semaphore is unlocked, and this creates a slight overhead, since before
- * unlocking the semaphore the previous job stats must be reported. When the
- * period ends but no start timestamp was recorded
+ * unlocked and the reporting variables are reset. The start of the next
+ * period matches with the end of the previous period. The next job starts as
+ * soon as the semaphore is unlocked, and this creates a slight overhead,
+ * since before unlocking the semaphore the previous job stats must be
+ * reported. When the period ends but no start timestamp was recorded
  * (`::job_period_start_timestamp` is `0`), no reporting will be done.
  *
  * If the job has not terminated when the period ends, a deadline skip is
- * reported if the deadline that has been missed is not the first since the job
- * start.
+ * reported if the deadline that has been missed is not the first since the
+ * job start.
  *
  * Finally, if the deadline matches the period, the period handler will also
  * perform the same operations as `deadline_handler()`, but will use the
@@ -368,11 +427,13 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
 
 /**
  * @brief A simple function that is used to install a signal handler.
- * @param[in] handled_signal The signal that is to be associated to the handler.
+ * @param[in] handled_signal The signal that is to be associated to the
+ * handler.
  * @param[in] handler The handler that is to be associated to the signal.
  * @param[in] masked_signals An array, containing the signals that must be
  * masked during the handler execution.
  * @param[in] masked_signals_num The number of element of `masked_signals`.
+ * @returns 0 on success, <0 on failure.
  */
 static int setup_signal(int handled_signal,
                         void (*handler)(int, siginfo_t *, void *),
@@ -406,22 +467,57 @@ static int setup_signal(int handled_signal,
 
 /** @brief A function that creates and arms a real-time timer.
  * @param[out] timer The pointer that will contain the created timer.
- * @param[in] signal_generated The signal that the timer must generated when it
- * expires.
+ * @param[in] signal_generated The signal that the timer must generated when
+ * it expires.
  * @param[in] interval_sec The seconds after which the timer will expire.
  * @param[in] interval_nsec The nanoseconds after which the timer will expire.
+ * @param[in] timer_type type of the timer, 0 for relative, TIMER_ABSTIME for
+ * absolute.
+ * @returns 0 on success, <0 on failure.
  * @details
- * The function will create and arm the timer for a periodic execution, with the
- * specified timing. The timer will be armed immediately after creation.\n
- * `interval_sec` and `interval_nsec` can be used in conjunction to specify when
- * the timer must expire and if they are both set to `0` the timer will not be
- * armed.
+ * The function will create and arm the timer for a periodic execution, with
+ * the specified timing. The timer will be armed immediately after creation.\n
+ * `interval_sec` and `interval_nsec` can be used in conjunction to specify
+ * when the timer must expire and if they are both set to `0` the timer will
+ * not be armed.
+ *
+ * The timer is armed at the beginning of the next period or if a synchonised
+ * start is in effect, after a common absolute timestamp. The latter option
+ * requires setting the timer time to absolute.
  */
 static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
-                       long interval_nsec) {
+                       long interval_nsec, int timer_type) {
   struct sigevent event;
   struct itimerspec timer_spec;
+  struct timespec initial_delay;
   int res = 0;
+  if (timer_type != TIMER_ABSTIME && timer_type != 0) {
+    elogf(LOG_LEVEL_ERR,
+          "Error during timer initialisation, wrong timer type supplied\n");
+    return -1;
+  }
+  if (timer_type == TIMER_ABSTIME) {
+    if (synch_params.shm != NULL) {
+      if (synch_params.shm->timer_initial_delay.tv_sec == 0 &&
+          synch_params.shm->timer_initial_delay.tv_nsec == 0) {
+        elogf(LOG_LEVEL_ERR,
+              "Error during timer initialisation, synch delay value is 0");
+        return -1;
+      }
+      initial_delay = synch_params.shm->timer_initial_delay;
+    } else {
+      res = clock_gettime(CLOCK_REALTIME, &(initial_delay));
+      if (res < 0) {
+        perror("Error during timer initialisation, cannot get current time");
+        return res;
+      }
+      initial_delay.tv_sec += interval_sec;
+      initial_delay.tv_nsec += interval_nsec;
+    }
+  } else {
+    initial_delay.tv_sec = interval_sec;
+    initial_delay.tv_nsec = interval_nsec;
+  }
   memset(&event, 0, sizeof(event));
   // the timer will generate a signal
   event.sigev_notify = SIGEV_SIGNAL;
@@ -437,10 +533,10 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
   // parameters
   timer_spec.it_interval.tv_sec = interval_sec;
   timer_spec.it_interval.tv_nsec = interval_nsec;
-  // the timer will start according to the setup deadline
-  timer_spec.it_value.tv_sec = interval_sec;
-  timer_spec.it_value.tv_nsec = interval_nsec;
-  res = timer_settime(*timer, 0, &timer_spec, NULL);
+  // the timer will start according to the setup deadline or the synchonised
+  // delay
+  timer_spec.it_value = initial_delay;
+  res = timer_settime(*timer, timer_type, &timer_spec, NULL);
   if (res < 0) {
     perror("Error during timer setup");
     return res;
@@ -448,13 +544,178 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
   return 0;
 }
 
+/** @brief Signal handler for synchnised start
+ * @param[in] signo Signal number (unused).
+ * @param[in] info Why the signal was generated (unused).
+ * @param[in] context interrupted thread context (unused).
+ * @details
+ * The process that receives the SIGUSR1 signal will calculate an
+ * absolute timestamp that will be used to initialise the deadline timer for all
+ * synchronised benchmarks and unblock all benchmarks by posting on the
+ * semaphore intil its value reaches 0.
+ *
+ * To avoid race condition only one process per group (the one that can
+ * succesfullt perform a compare and swap) will be able to unblock the others,
+ * all other process will simply ignore the signal.
+ */
+void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
+  int res, waiting_bmarks;
+  pid_t val = getpid(), *ptr = &(synch_params.shm->unblocker_pid), expected = 0;
+  bool atomic_res;
+  // make sure there is only one unblocker!
+  // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+  atomic_res = __atomic_compare_exchange(ptr, &expected, &val, false,
+                                         __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  elogf(LOG_LEVEL_DEBUG, "we are %d and %d is the unblocker\n", val,
+        synch_params.shm->unblocker_pid);
+  if (atomic_res) {
+    if (synch_params.shm == NULL) {
+      elogf(LOG_LEVEL_ERR,
+            "Error while starting synchonised benchmarks, missing shm\n");
+      res = -1;
+    } else {
+      // compute delay for benchmarks
+      res = clock_gettime(CLOCK_REALTIME,
+                          &(synch_params.shm->timer_initial_delay));
+      if (res < 0) {
+        perror(
+            "Error while starting synchonised benchmarks, cannot get current "
+            "time");
+      } else {
+        synch_params.shm->timer_initial_delay.tv_sec += SYNCH_DELAY_REL_SEC;
+        synch_params.shm->timer_initial_delay.tv_nsec += SYNCH_DELAY_REL_NSEC;
+        elogf(LOG_LEVEL_DEBUG, "set initial delay to %d sec and %d nsec\n",
+              SYNCH_DELAY_REL_SEC, SYNCH_DELAY_REL_NSEC);
+        do {
+          res = sem_getvalue(synch_params.sem, &waiting_bmarks);
+          if (res < 0) {
+            synch_params.shm->timer_initial_delay.tv_sec = 0;
+            synch_params.shm->timer_initial_delay.tv_nsec = 0;
+            perror(
+                "Error while starting synchonised benchmarks, cannot get sem "
+                "value");
+          }
+          res = sem_post(synch_params.sem);
+          if (res < 0) {
+            synch_params.shm->timer_initial_delay.tv_sec = 0;
+            synch_params.shm->timer_initial_delay.tv_nsec = 0;
+            perror(
+                "Error while starting synchonised benchmarks, cannot post on "
+                "semaphore");
+          }
+        } while (waiting_bmarks <= 0);
+      }
+    }
+    if (res < 0) {
+      elogf(
+          LOG_LEVEL_ERR,
+          "\n\nWARNING:All benchmarks currently using the '-s %s' will have an "
+          "invalid state"
+          "forever, the user has to manually kill them\n\n",
+          synch_params.shm_name);
+    }
+  } else {
+    elogf(LOG_LEVEL_DEBUG, "We are %d and there is another unblocker, %d\n",
+          val, expected);
+  }
+}
+
+/**@brief Synchronise the start of multiple benchmarks.
+ * @param[in] group_name The name of the benchmark group.
+ * @return `0` on success, `<0` on error.
+ * @details
+ * This function will create a shared memory and a semaphore to synchronise
+ * the start of multiple benchmarks. The process that creates the shm will be
+ * considered the 'master' process and be responsible for setting its size.
+ *
+ * All the processes will initally wait on `::synch_params_t.sem` until
+ * any of them recevies a SIGUSR1 signal, which will unblock all the
+ * processes.
+ *
+ * The named semaphore and the shm will be crated with a name that is generated
+ * from the benchmark group name.
+ */
+static int synchronise_benchmark_start(const char *group_name) {
+  int res, master = 0;
+  res = asprintf(&(synch_params.shm_name), "sem_%s", group_name);
+  if (res < 0) {
+    perror("Errod during creation of synchonisation shm name");
+    return res;
+  }
+  res = asprintf(&(synch_params.sem_name), "sem_%s", group_name);
+  if (res < 0) {
+    perror("Errod during creation of synchonisation semaphore name");
+    return res;
+  }
+  synch_params.sem = sem_open(synch_params.sem_name, O_CREAT, 0644, 0);
+  if (synch_params.sem == SEM_FAILED) {
+    perror("Error during semaphore initialization for synchronised start");
+    return -1;
+  }
+  elogf(LOG_LEVEL_DEBUG, "Created names semaphore %s\n", synch_params.sem_name);
+  synch_params.fd =
+      shm_open(synch_params.shm_name, O_CREAT | O_RDWR | O_EXCL, 0640);
+  if (synch_params.fd < 0) {
+    if (errno != EEXIST) {
+      perror("Error during exlusive open of shared memory for synchronised "
+             "start");
+      deallocate_synch_resources();
+      return synch_params.fd;
+    }
+    master = 0;
+    // reopen the shm in non-exclusive mode ifthe shm is already there
+    synch_params.fd = shm_open(synch_params.shm_name, O_CREAT | O_RDWR, 0640);
+    if (synch_params.fd < 0) {
+      perror("Error during shared memory open for synchronised start");
+      deallocate_synch_resources();
+      return synch_params.fd;
+    }
+    elogf(LOG_LEVEL_DEBUG, "Opened shared memory as non master\n");
+  } else {
+    master = 1;
+    elogf(LOG_LEVEL_DEBUG, "Opened shared memory as master\n");
+  }
+
+  // if we are the master, we initialize the shared memory
+  if (master) {
+    do {
+      res = ftruncate(synch_params.fd, sizeof(struct synch_params_t));
+      if (res < 0 && errno != EINTR) {
+        perror("Error during shared memory size setup for synchronised start");
+        deallocate_synch_resources();
+        return res;
+      }
+    } while (res < 0 && errno == EINTR);
+    elogf(LOG_LEVEL_DEBUG, "Init shared memory to 0\n");
+  }
+  synch_params.shm = mmap(NULL, sizeof(struct shm), PROT_READ | PROT_WRITE,
+                          MAP_SHARED, synch_params.fd, 0);
+  if (synch_params.shm == MAP_FAILED) {
+    perror("Error during shared memory mapping for synchronised start");
+    deallocate_synch_resources();
+    return -1;
+  }
+  if (master) {
+    memset(synch_params.shm, 0, sizeof(struct shm));
+  }
+  elogf(LOG_LEVEL_DEBUG, "mmapped shared memory\n");
+  int blocked_signals[1] = {SIGUSR1};
+  res = setup_signal(SIGUSR1, synch_on_start_handler, blocked_signals, 1);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "Error during handler setup for synchonised start\n");
+    deallocate_synch_resources();
+    return res;
+  }
+  return 0;
+}
+
 /** @details
- * This function will prepare the environment for executing the job, initialize
- * the timers and signal handlers. If `bytes_to_preallocate` in
+ * This function will prepare the environment for executing the job,
+ * initialize the timers and signal handlers. If `bytes_to_preallocate` in
  * `::execution_options` is not `0` (which is set in the command line via the
- * `-m` option) the memory watcher is also initialized. When the environment for
- * the periodic benchmark is initialized, the benchmark will be periodically
- * executed.
+ * `-m` option) the memory watcher is also initialized. When the environment
+ * for the periodic benchmark is initialized, the benchmark will be
+ * periodically executed.
  *
  * To execute the benchmark periodically we use two timers that fire different
  * real time signals:
@@ -465,8 +726,8 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
  * After the setup, the periodic benchmark will start after a
  * `::SIGNAL_END_PERIOD` is received, to allow a start with reduced delay.
  *
- * When a `SIGINT` is received, the timer will be destroyed and the environment
- * for the job execution will be cleaned.
+ * When a `SIGINT` is received, the timer will be destroyed and the
+ * environment for the job execution will be cleaned.
  *
  * The environment for the job execution is handled by calling the
  * `benchmark_init()` and `benchmark_teardown()` functions.
@@ -476,12 +737,16 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
  */
 int periodic_benchmark(struct execution_options *exec_opts) {
   // variables used to handle signals
-  int job_masked_signals_num = 2;
-  int job_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD};
-  int quit_masked_signals_num = 3;
-  int quit_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGINT};
+  int job_masked_signals_num = 3;
+  int job_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGUSR1};
+  int quit_masked_signals_num = 4;
+  int quit_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGINT,
+                               SIGUSR1};
   // status variables
   int res;
+  // with synchronised start we need to wait on the local semaphore only the 1st
+  // time if there is no period.
+  int synch_wait_done = 0;
 
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
   // Initialize the performance sampler thread
@@ -577,8 +842,17 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   elogf(LOG_LEVEL_TRACE, "Perf counters initialized\n");
 #endif
+  if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
+
+    elogf(LOG_LEVEL_TRACE, "Configuring synchonised start\n");
+    res = synchronise_benchmark_start(exec_opts->synch_start_group);
+    if (res < 0) {
+      return res;
+    }
+  }
   elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
   if (exec_opts->heap_size > 0) {
+    elogf(LOG_LEVEL_TRACE, "Starting memory watcher\n");
     start_memory_watcher(exec_opts->heap_size, exec_opts->heap_address,
                          exec_opts->heap_file_path);
   }
@@ -588,7 +862,11 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     return res;
   }
   elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");
-  if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+  // we need to setup timers if we have a period or a synchonised start
+  // In case of a synchonised start the timer need to be setup to have all
+  // benchmarks start at the same timestamp
+  if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0 ||
+      exec_opts->synch_start == OPT_FEAT_ENABLED) {
     // we initialize the period semaphore to 0, to wait for the period end.
     res = sem_init(&period_sem, 1, 0);
     if (res < 0) {
@@ -615,7 +893,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
       deadline_timer_status = DEADLINE_TIMER_IN_USE;
       // the deadline timer is setup with 0 interval since it will be armed
       // once a period starts
-      res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0);
+      res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0, 0);
       if (res < 0) {
         return res;
       }
@@ -628,9 +906,30 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     } else {
       deadline_timer_status = !DEADLINE_TIMER_IN_USE;
     }
-
+    // before setting up the period timer we wait for the synchronised start
+    if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
+      do {
+        elogf(LOG_LEVEL_TRACE, "Waiting for synchronised start\n");
+        res = sem_wait(synch_params.sem);
+        if (res < 0 && errno != EINTR) {
+          perror("Error during semaphore wait for synchronised start");
+          deallocate_synch_resources();
+          return res;
+        }
+      } while (res < 0 && errno == EINTR);
+      elogf(LOG_LEVEL_TRACE, "Ignoring additionals SIGUSR1s\n");
+      sigset_t synch_sigset;
+      sigemptyset(&synch_sigset);
+      sigaddset(&synch_sigset, SIGUSR1);
+      res = sigprocmask(SIG_BLOCK, &synch_sigset, NULL);
+      if (res < 0) {
+        perror("Error during SIGUSR1 blocking");
+        return res;
+      }
+      elogf(LOG_LEVEL_TRACE, "benchmarks in sync.\n");
+    }
     res = setup_timer(&period_timer, SIGNAL_END_PERIOD, exec_opts->period_sec,
-                      exec_opts->period_nsec);
+                      exec_opts->period_nsec, TIMER_ABSTIME);
     if (res < 0) {
       return res;
     }
@@ -644,11 +943,13 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // launched the specified amount of benchmarks.
   while (tasks_launched < exec_opts->tasks_to_launch ||
          exec_opts->tasks_to_launch == 0) {
-    // we wait for the period to finish
-    if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+    // we wait for the period to finish or for the initial synch delay to be
+    // over
+    if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0 ||
+        (exec_opts->synch_start == OPT_FEAT_ENABLED && synch_wait_done == 0)) {
       do {
         res = sem_wait(&period_sem);
-
+        synch_wait_done = 1;
       } while ((exec_opts->period_nsec > 0 || exec_opts->period_nsec > 0) ||
                (res < 0 && errno == EINTR));
 

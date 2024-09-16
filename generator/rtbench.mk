@@ -24,7 +24,7 @@ BASE_O=$(OBJECT)/*.o
 override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
 
 # Add linker's flags
-override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
+override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
 
 #optional features
 
@@ -132,6 +132,23 @@ else
  ifeq ($(subst 0,$(FEAT_DISABLED),$(FEAT_STATICX)),$(FEAT_DISABLED))
   $(info Staticx disabled)
  endif
+endif
+
+# Override synch macros if the user requests it
+ifdef SYNCH_DELAY_REL_SEC
+ifndef SYNCH_DELAY_REL_NSEC
+ $(info Initial synch delay set to $(SYNCH_DELAY_REL_SEC) seconds)
+endif
+ override CFLAGS+=-DSYNCH_DELAY_REL_SEC=$(SYNCH_DELAY_REL_SEC)
+endif
+
+ifdef SYNCH_DELAY_REL_NSEC
+ifndef SYNCH_DELAY_REL_SEC
+ $(info Initial synch delay set to $(SYNCH_DELAY_REL_NSEC) nanoseconds)
+ else
+ $(info Initial synch delay set to $(SYNCH_DELAY_REL_SEC) seconds and $(SYNCH_DELAY_REL_NSEC) nanoseconds)
+endif
+ override CFLAGS+=-DSYNCH_DELAY_REL_NSEC=$(SYNCH_DELAY_REL_NSEC)
 endif
 
 CXXFLAGS:=$(CFLAGS)

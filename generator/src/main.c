@@ -365,11 +365,10 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     arg_len = strlen(arg);
     // remove extension if present, each output file will have its own extension
     if (strstr(arg + (arg_len - 4), ".") != NULL) {
-			arg_len = arg_len-4; // remove the extension
+      arg_len = arg_len - 4; // remove the extension
     }
-      parsed_args->output_path = malloc(sizeof(char) * arg_len+1);
-      snprintf(parsed_args->output_path, sizeof(char) * arg_len+1, "%s",
-               arg);
+    parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
+    snprintf(parsed_args->output_path, sizeof(char) * arg_len + 1, "%s", arg);
     if (parsed_args->output_path == NULL) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");
@@ -432,6 +431,15 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     break;
   case 'P':
     parsed_args->period = strtoull(arg, NULL, 0);
+    break;
+  case 's':
+    parsed_args->synch_start = OPT_FEAT_ENABLED;
+    printf("arg: %s\n", arg);
+    if (arg == 0) {
+      parsed_args->synch_start_group = "rt-bench";
+    } else {
+      parsed_args->synch_start_group = arg;
+    }
     break;
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
   case 'M':
@@ -615,6 +623,16 @@ int main(int argc, char **argv) {
     {"tasks-number", 't', "integer>=0", 0,
      "The number of tasks to be executed. 0 means until the program receives a "
      "SIGINT. Default is 0."},
+    {"synchronized-start", 's', "group_name", OPTION_ARG_OPTIONAL,
+     "Enabling this option will make the benchmark synchronize its start with "
+     "other "
+     "benchmarks in the same group by waiting for a SIGUSR1 signal. Once one "
+     "of "
+     "the waiting benchmarks receives SIGUSR1 it will unlock itself and all "
+     "other instances in the same group. The benchmarks in the group will then "
+     "start at a common absolute timestamp. Default name for the group is "
+     "'rt-bench'. The user need to put extra care in choosing a unique name "
+     "for each experiment group when there are more than one."},
     {0, 0, 0, 0, "Scheduling options:\n\n", 4},
     {"fifo", 'f', "0<=prio<=99", 0,
      "Set SCHED_FIFO priority with specified priority. Need root."},
@@ -701,6 +719,10 @@ int main(int argc, char **argv) {
         parsed_args.heap_size);
   elogf(LOG_LEVEL_TRACE, "\tfixed heap address: %p\n",
         parsed_args.heap_address);
+  elogf(LOG_LEVEL_TRACE, "\tsynchonised start enabled: %d\n",
+        parsed_args.synch_start);
+  elogf(LOG_LEVEL_TRACE, "\tsynchonised start group: %s\n",
+        parsed_args.synch_start_group);
 
   // benchmark initialization
   res = periodic_benchmark(&parsed_args);

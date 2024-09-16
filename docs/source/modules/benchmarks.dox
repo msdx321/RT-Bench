@@ -70,6 +70,14 @@ The configuration defined in a JSON file can be complemented or partially overri
      As an alternative to `/dev/mem` backing, the user can also provide a binary file by specifing its path.
 - `-t`, `--tasks-number=integer>=0` The number of tasks to be executed. 0 means
   until the program receives a `SIGINT`. Default is 0.
+- `-s`, `--synchronized-start [group_name]` Enabling this option will make the benchmark synchronize its start with other
+     benchmarks in the same group by waiting for a SIGUSR1 signal.
+     Once one of the waiting benchmarks receives SIGUSR1 it will unlock itself and all
+     other instances in the same group. The benchmarks in the group will then start at a common absolute timestamp.
+
+	Default name for the group is 'rt-bench'.
+
+	The user need to put extra care in choosing a unique name for each experiment group when there are more than one.
 
 ### Scheduling options
 
