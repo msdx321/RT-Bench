@@ -858,7 +858,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   res = benchmark_init(benchmark_param_num, benchmark_params);
   if (res < 0) {
-    perror("Error during job environment initialization");
+    elogf(LOG_LEVEL_ERR, "Error during job environment initialization");
     return res;
   }
   elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");

@@ -434,7 +434,6 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     break;
   case 's':
     parsed_args->synch_start = OPT_FEAT_ENABLED;
-    printf("arg: %s\n", arg);
     if (arg == 0) {
       parsed_args->synch_start_group = "rt-bench";
     } else {
