@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <time.h>
+#include <unistd.h>
 
 /// This value in `::deadline_timer_status` determines that the deadline timer
 /// must be used
@@ -146,6 +147,11 @@ static struct synch_params_t {
 /// Deallocate shared resources for synchronised benchmark start.
 static void deallocate_synch_resources() {
   int res;
+  pid_t own_pid, unblocker_pid;
+  if (synch_params.shm != NULL) {
+    own_pid = getpid();
+    unblocker_pid = synch_params.shm->unblocker_pid;
+  }
   if (synch_params.sem_name != NULL) {
     if (synch_params.sem != NULL) {
       res = sem_close(synch_params.sem);
@@ -153,9 +159,11 @@ static void deallocate_synch_resources() {
         perror("Error during synchronisation semaphore deallocation");
       }
     }
-    res = sem_unlink(synch_params.sem_name);
-    if (res < 0) {
-      perror("Error during synchronisation semaphore unlinking");
+    if (unblocker_pid == own_pid) {
+      res = sem_unlink(synch_params.sem_name);
+      if (res < 0) {
+        perror("Error during synchronisation semaphore unlinking");
+      }
     }
     free(synch_params.sem_name);
   }
@@ -173,9 +181,11 @@ static void deallocate_synch_resources() {
     }
   }
   if (synch_params.shm_name != NULL) {
-    res = shm_unlink(synch_params.shm_name);
-    if (res < 0) {
-      perror("Error during shared memory unlinking");
+    if (unblocker_pid == own_pid) {
+      res = shm_unlink(synch_params.shm_name);
+      if (res < 0) {
+        perror("Error during shared memory unlinking");
+      }
     }
     free(synch_params.shm_name);
   }
@@ -637,7 +647,7 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
  */
 static int synchronise_benchmark_start(const char *group_name) {
   int res, master = 0;
-  res = asprintf(&(synch_params.shm_name), "sem_%s", group_name);
+  res = asprintf(&(synch_params.shm_name), "shm_%s", group_name);
   if (res < 0) {
     perror("Errod during creation of synchonisation shm name");
     return res;
