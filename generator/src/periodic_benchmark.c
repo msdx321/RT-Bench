@@ -570,10 +570,12 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
  * The process that receives the SIGUSR1 signal will calculate an
  * absolute timestamp that will be used to initialise the deadline timer for all
  * synchronised benchmarks and unblock all benchmarks by posting on the
- * semaphore intil its value reaches 0.
+ * shared unnamed sempahore once for each benchmark recorded in `waiting_bmarks`.
+ * It will then flip `unblocked` to `true` to signal that the benchmarks are started,
+ * so that "late" benchmarks can gracefully exit when they read this variable.
  *
- * To avoid race condition only one process per group (the one that can
- * succesfullt perform a compare and swap) will be able to unblock the others,
+ * To avoid race conditions only one process per group (the one that can
+ * succesfully perform a compare and swap) will be able to unblock the others,
  * all other process will simply ignore the signal.
  */
 void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
@@ -637,17 +639,12 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
 /**@brief Synchronise the start of multiple benchmarks.
  * @param[in] group_name The name of the benchmark group.
  * @return `0` on success, `<0` on error.
- * @details
- * This function will create a shared memory and a semaphore to synchronise
- * the start of multiple benchmarks. The process that creates the shm will be
- * considered the 'master' process and be responsible for setting its size.
- *
- * All the processes will initally wait on `::synch_params_t.sem` until
- * any of them recevies a SIGUSR1 signal, which will unblock all the
- * processes.
- *
- * The named semaphore and the shm will be crated with a name that is generated
- * from the benchmark group name.
+ * @details This function will create a shared memory and a semaphore to
+ * synchronise the start of multiple benchmarks. The process that creates the
+ * shm will be considered the 'master' process and be responsible for setting
+ * its size and initialising a unnamed semaphore used for synchronisation.
+ * All benchmarks will then increase the `waiting_bmarks` variable in
+ * `::sync_params` shared memory and register a `SIGURSR1` signal handler.
  */
 static int synchronise_benchmark_start(const char *group_name) {
   int res, master = 0;
