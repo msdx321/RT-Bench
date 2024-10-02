@@ -131,12 +131,16 @@ static float extra_measurement = 0.0f;
 
 /// Struct that contains the parameters for the benchmark synchronised start.
 static struct synch_params_t {
-  char *shm_name, ///< The name of the shared memory.
-      *sem_name;  ///< The name of the named semaphore.
-  int fd;         ///< The file descriptor of the shared memory.
-  sem_t *sem;     ///< The semaphore used for init synchronisation.
+  char *shm_name,  ///< The name of the shared memory.
+      *sem_name;   ///< The name of the named semaphore.
+  int fd;          ///< The file descriptor of the shared memory.
+  sem_t *init_sem; ///< The semaphore used for shared shm init.
   /// The shared memory used to synchornise the benchmark group
   struct shm {
+    bool unblocked;  //< Sanity check variable to make sure that no benchmarks
+                     // join after we unblock.
+    sem_t synch_sem; ///< The semaphore used for benchmark synchronisation.
+    unsigned int waiting_bmarks;         //< The nunmber of waiting benchmarks.
     struct timespec timer_initial_delay; ///< The initial delay of the
                                          ///< timer.
     pid_t unblocker_pid; ///< The pid of the process responsible for
@@ -147,14 +151,13 @@ static struct synch_params_t {
 /// Deallocate shared resources for synchronised benchmark start.
 static void deallocate_synch_resources() {
   int res;
-  pid_t own_pid, unblocker_pid;
+  pid_t own_pid = getpid(), unblocker_pid = 0;
   if (synch_params.shm != NULL) {
-    own_pid = getpid();
     unblocker_pid = synch_params.shm->unblocker_pid;
   }
   if (synch_params.sem_name != NULL) {
-    if (synch_params.sem != NULL) {
-      res = sem_close(synch_params.sem);
+    if (synch_params.init_sem != NULL) {
+      res = sem_close(synch_params.init_sem);
       if (res < 0) {
         perror("Error during synchronisation semaphore deallocation");
       }
@@ -168,8 +171,13 @@ static void deallocate_synch_resources() {
     free(synch_params.sem_name);
   }
   if (synch_params.shm != NULL) {
-    res = munmap(&(synch_params.shm->timer_initial_delay),
-                 sizeof(struct timespec));
+    if (unblocker_pid == own_pid) {
+      res = sem_destroy(&(synch_params.shm->synch_sem));
+      if (res < 0) {
+        perror("Error during synch semaphore destruction");
+      }
+    }
+    res = munmap(synch_params.shm, sizeof(struct shm));
     if (res < 0) {
       perror("Error during synchronisation shared memory unmapping");
     }
@@ -569,16 +577,20 @@ static int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
  * all other process will simply ignore the signal.
  */
 void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
-  int res, waiting_bmarks;
-  pid_t val = getpid(), *ptr = &(synch_params.shm->unblocker_pid), expected = 0;
-  bool atomic_res;
+  int i, res;
+  pid_t pid_val = getpid(), *pid_ptr = &(synch_params.shm->unblocker_pid),
+        pid_expected = 0;
+  bool atomic_res, unblock_val = true;
   // make sure there is only one unblocker!
   // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-  atomic_res = __atomic_compare_exchange(ptr, &expected, &val, false,
-                                         __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-  elogf(LOG_LEVEL_DEBUG, "we are %d and %d is the unblocker\n", val,
+  atomic_res =
+      __atomic_compare_exchange(pid_ptr, &pid_expected, &pid_val, false,
+                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  elogf(LOG_LEVEL_DEBUG, "we are %d and %d is the unblocker\n", pid_val,
         synch_params.shm->unblocker_pid);
   if (atomic_res) {
+    __atomic_store(&(synch_params.shm->unblocked), &unblock_val,
+                   __ATOMIC_SEQ_CST);
     if (synch_params.shm == NULL) {
       elogf(LOG_LEVEL_ERR,
             "Error while starting synchonised benchmarks, missing shm\n");
@@ -596,16 +608,8 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
         synch_params.shm->timer_initial_delay.tv_nsec += SYNCH_DELAY_REL_NSEC;
         elogf(LOG_LEVEL_DEBUG, "set initial delay to %d sec and %d nsec\n",
               SYNCH_DELAY_REL_SEC, SYNCH_DELAY_REL_NSEC);
-        do {
-          res = sem_getvalue(synch_params.sem, &waiting_bmarks);
-          if (res < 0) {
-            synch_params.shm->timer_initial_delay.tv_sec = 0;
-            synch_params.shm->timer_initial_delay.tv_nsec = 0;
-            perror(
-                "Error while starting synchonised benchmarks, cannot get sem "
-                "value");
-          }
-          res = sem_post(synch_params.sem);
+        for (i = 0; i < synch_params.shm->waiting_bmarks; i++) {
+          res = sem_post(&(synch_params.shm->synch_sem));
           if (res < 0) {
             synch_params.shm->timer_initial_delay.tv_sec = 0;
             synch_params.shm->timer_initial_delay.tv_nsec = 0;
@@ -613,7 +617,7 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
                 "Error while starting synchonised benchmarks, cannot post on "
                 "semaphore");
           }
-        } while (waiting_bmarks <= 0);
+        }
       }
     }
     if (res < 0) {
@@ -626,7 +630,7 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
     }
   } else {
     elogf(LOG_LEVEL_DEBUG, "We are %d and there is another unblocker, %d\n",
-          val, expected);
+          pid_val, pid_expected);
   }
 }
 
@@ -647,18 +651,18 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
  */
 static int synchronise_benchmark_start(const char *group_name) {
   int res, master = 0;
-  res = asprintf(&(synch_params.shm_name), "shm_%s", group_name);
+  res = asprintf(&(synch_params.shm_name), "/shm_%s", group_name);
   if (res < 0) {
     perror("Errod during creation of synchonisation shm name");
     return res;
   }
-  res = asprintf(&(synch_params.sem_name), "sem_%s", group_name);
+  res = asprintf(&(synch_params.sem_name), "/sem_%s", group_name);
   if (res < 0) {
     perror("Errod during creation of synchonisation semaphore name");
     return res;
   }
-  synch_params.sem = sem_open(synch_params.sem_name, O_CREAT, 0644, 0);
-  if (synch_params.sem == SEM_FAILED) {
+  synch_params.init_sem = sem_open(synch_params.sem_name, O_CREAT, 0644, 1);
+  if (synch_params.init_sem == SEM_FAILED) {
     perror("Error during semaphore initialization for synchronised start");
     return -1;
   }
@@ -685,7 +689,6 @@ static int synchronise_benchmark_start(const char *group_name) {
     master = 1;
     elogf(LOG_LEVEL_DEBUG, "Opened shared memory as master\n");
   }
-
   // if we are the master, we initialize the shared memory
   if (master) {
     do {
@@ -705,8 +708,24 @@ static int synchronise_benchmark_start(const char *group_name) {
     deallocate_synch_resources();
     return -1;
   }
+  res = sem_wait(synch_params.init_sem);
+  if (res < 0) {
+    perror("Cannot wait on synch init semaphore");
+    return res;
+  }
   if (master) {
     memset(synch_params.shm, 0, sizeof(struct shm));
+    res = sem_init(&(synch_params.shm->synch_sem), 1, 0);
+    if (res < 0) {
+      perror("Cannot init synch semaphore");
+      return res;
+    }
+  }
+  synch_params.shm->waiting_bmarks++;
+  res = sem_post(synch_params.init_sem);
+  if (res < 0) {
+    perror("Cannot post on synch init semaphore");
+    return res;
   }
   elogf(LOG_LEVEL_DEBUG, "mmapped shared memory\n");
   int blocked_signals[1] = {SIGUSR1};
@@ -754,6 +773,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
                                SIGUSR1};
   // status variables
   int res;
+  bool unblock_val;
   // with synchronised start we need to wait on the local semaphore only the 1st
   // time if there is no period.
   int synch_wait_done = 0;
@@ -918,9 +938,16 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
     // before setting up the period timer we wait for the synchronised start
     if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
+      __atomic_load(&(synch_params.shm->unblocked), &unblock_val,
+                    __ATOMIC_SEQ_CST);
+      if (unblock_val == true) {
+        elogf(LOG_LEVEL_ERR,
+              "Waiting and an already started set of benchmarks, aborting.\n");
+        return -EXIT_FAILURE;
+      }
       do {
         elogf(LOG_LEVEL_TRACE, "Waiting for synchronised start\n");
-        res = sem_wait(synch_params.sem);
+        res = sem_wait(&(synch_params.shm->synch_sem));
         if (res < 0 && errno != EINTR) {
           perror("Error during semaphore wait for synchronised start");
           deallocate_synch_resources();
