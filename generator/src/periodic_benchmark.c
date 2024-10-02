@@ -644,7 +644,7 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
  * shm will be considered the 'master' process and be responsible for setting
  * its size and initialising a unnamed semaphore used for synchronisation.
  * All benchmarks will then increase the `waiting_bmarks` variable in
- * `::sync_params` shared memory and register a `SIGURSR1` signal handler.
+ * `::synch_params` shared memory and register a `SIGURSR1` signal handler.
  */
 static int synchronise_benchmark_start(const char *group_name) {
   int res, master = 0;
