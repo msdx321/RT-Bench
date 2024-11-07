@@ -8,10 +8,10 @@ docs: setup-docs
 clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python
 
 setup: setup-docs setup-tacle setup-image-filters
-ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
+ifeq ("$(wildcard generator/src/dlmalloc/LICENSE)", "")
 ifndef DOCS_ONLY
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
-	@git submodule update --init --recursive $(SOURCE)/dlmalloc
+	@git submodule update --init --recursive generator/src/dlmalloc
 endif
 endif
 
