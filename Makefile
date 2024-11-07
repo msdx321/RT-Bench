@@ -7,25 +7,21 @@ docs: setup-docs
 
 clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python
 
-setup: setup-docs setup-tacle setup-image-filters setup-compile
-
-#setup targets
-setup-compile:
-ifndef DOCS_ONLY
-	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
-	@git submodule update --init --recursive generator/src/dlmalloc
-endif
+setup: setup-docs setup-tacle setup-image-filters
 
 setup-docs:
 	make -C ${CURDIR}/docs setup
 
 setup-tacle:
+ifeq ("$(wildcard rt-tacle-bench/README.dox)", "")
 	@echo 'Initialization and fetching of the pinned version of the rt-tacle-bench submodule...'
 	@git submodule update --init --recursive rt-tacle-bench
 	@echo 'Convert the submodule README.md to a .dox file that will be included in the documentation...'
 	@cd rt-tacle-bench && bash ../utils/md2dox.sh README
+endif
 
 setup-image-filters:
+ifeq ("$(wildcard image-filters/README.dox)", "")
 	@echo 'Initialization and fetching of the pinned version of the image-filters submodule...'
 	@git submodule update --init --recursive image-filters
 ifndef DOCS_ONLY
@@ -34,6 +30,7 @@ ifndef DOCS_ONLY
 endif
 	@echo 'Convert the submodule README.md to a .dox file that will be included in the documentation...'
 	@cd image-filters && bash ../utils/md2dox.sh README
+endif
 
 #compilation targets
 compile-isolbench: setup-compile
