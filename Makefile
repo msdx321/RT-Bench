@@ -33,23 +33,23 @@ endif
 endif
 
 #compilation targets
-compile-isolbench: setup-compile
+compile-isolbench:
 	@echo 'Compiling IsolBench'
 	make -C ${CURDIR}/IsolBench/
 
-compile-tacle: setup-tacle setup-compile
+compile-tacle: setup-tacle
 	@echo 'Compiling TACLeBench'
 	make -C ${CURDIR}/rt-tacle-bench/
 
-compile-vision: setup-compile
+compile-vision:
 	@echo 'Compiling SD-VBS'
 	make -C ${CURDIR}/vision/ compile
 
-compile-image-filters: setup-image-filters setup-compile
+compile-image-filters: setup-image-filters
 	@echo 'Compiling image-filters'
 	make -C ${CURDIR}/image-filters/
 
-compile-utils: setup-compile
+compile-utils:
 	@echo 'Compiling utils'
 	make -C ${CURDIR}/utils/
 
@@ -83,21 +83,21 @@ clean-python:
 # benchmark suite groups
 
 # WCET group
-setup-group-WCET: setup-tacle setup-compile
+setup-group-WCET: setup-tacle
 
 clean-group-WCET: clean-tacle
 
-compile-group-WCET: setup-bmarks-WCET setup-compile compile-tacle
+compile-group-WCET: setup-bmarks-WCET  compile-tacle
 
 # vision group
-setup-group-vision: setup-image-filters setup-compile
+setup-group-vision: setup-image-filters
 
-clean-group-vision: clean-vision clean-image-filters setup-compile
+clean-group-vision: clean-vision clean-image-filters
 
-compile-group-vision: compile-vision compile-image-filters setup-compile
+compile-group-vision: compile-vision compile-image-filters
 
 # interference group
-setup-group-interf: setup-compile
+setup-group-interf:
 
 clean-group-interf: clean-isolbench
 
