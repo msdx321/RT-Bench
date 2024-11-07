@@ -37,6 +37,10 @@ $(info Features enabled:)
 $(info )
 $(info Using $(CC) as compiler)
 
+ifneq ($(CROSS_COMPILE),)
+  $(info Cross compiling with $(CROSS_COMPILE))
+endif
+
 # variables to avoid confusion between enabled and disabled features
 MACRO_FEAT_ENABLED=1
 MACRO_FEAT_DISABLED=0
@@ -171,31 +175,32 @@ create-obj-folder:
 	@mkdir -p $(OBJECT)
 
 dlmalloc: create-obj-folder
+	git submodule update --init $(SOURCE)/dlmalloc
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
 
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
 
 logging: init $(INCLUDE)/logging.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/logging.c -o $(OBJECT)/logging.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/logging.c -o $(OBJECT)/logging.o $(LDFLAGS)
 
 memory_watcher: init $(INCLUDE)/memory_watcher.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/memory_watcher.c -o $(OBJECT)/memory_watcher.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/memory_watcher.c -o $(OBJECT)/memory_watcher.o $(LDFLAGS)
 
 performance_counters: init $(INCLUDE)/performance_counters.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/performance_counters.c -o $(OBJECT)/performance_counters.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_counters.c -o $(OBJECT)/performance_counters.o $(LDFLAGS)
 
 performance_sampler: init $(INCLUDE)/performance_sampler.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampelr.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampelr.o $(LDFLAGS)
 
 periodic_benchmark: init $(INCLUDE)/periodic_benchmark.h
-	$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
 
 main: init $(SOURCE)/main.c
-	$(CC) $(CFLAGS) -c $(SOURCE)/main.c -o $(OBJECT)/main.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/main.c -o $(OBJECT)/main.o $(LDFLAGS)
 

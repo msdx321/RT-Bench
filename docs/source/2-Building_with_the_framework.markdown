@@ -101,6 +101,7 @@ The `Makefile` provided in [Isolbench](@ref IsolBench) is a good example of how 
 Typically, once `generator/rtbench.mk` is included, five different variables are accessible:
 
 - `rtbench`: recipe to initialize and build the RT-Bench core components for the desired target
+- `CROSS_COMPILE`: user-specified cross compiler variable (i.e. aarch64-linux-gnu-)
 - `CC`: user-specified compiler for the desired target
 - `CFLAGS`: compilation flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
 - `BASE_O`: set of object files for the RT-Bench core components
@@ -112,7 +113,7 @@ Using these variables and recipes, we recommend to write recipes for compiling y
 
 ```{.mk}
 <benchmark>: rtbench
-	$(CC) $(CFLAGS) <benchmark>.c $(BASE_O) -o <benchmark> $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) <benchmark>.c $(BASE_O) -o <benchmark> $(LDFLAGS)
 	$(STATICX_REQ)
 	$(STATICX_CMD) <benchmark> <benchmark>.sx
 ```
