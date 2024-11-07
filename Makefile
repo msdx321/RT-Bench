@@ -8,6 +8,12 @@ docs: setup-docs
 clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python
 
 setup: setup-docs setup-tacle setup-image-filters
+ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
+ifndef DOCS_ONLY
+	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
+	@git submodule update --init --recursive $(SOURCE)/dlmalloc
+endif
+endif
 
 setup-docs:
 	make -C ${CURDIR}/docs setup
