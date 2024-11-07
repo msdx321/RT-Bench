@@ -178,13 +178,13 @@ dlmalloc: create-obj-folder
 ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
 	@git submodule update --init --recursive $(SOURCE)/dlmalloc
+endif
 	@echo "setting up dlmalloc"
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-endif
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
 
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
