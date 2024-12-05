@@ -178,7 +178,7 @@ make command by defining the `FEAT_JSON=y` or `FEAT_JSON=n` variable or adding
 the `-DFEAT_JSON_SUPPORT=1` (enable) or `-DFEAT_JSON_SUPPORT=0` (disable) flag
 in the compilation command line.
 
-#### Deadline scheduler support {#sched_deadline_support}
+### Deadline scheduler support {#sched_deadline_support}
 
 On some systems, a deadline-aware scheduler might not be available. RT-Bench
 tries to detect automatically at compilation time if the support for this
@@ -216,7 +216,7 @@ corresponding parameters when issuing a `make` command.
 | `-D__aarch64__` | `-DCORTEX_A53` | `CORE=CORTEX_A53` | Xilinx ZCU102 / Raspberry Pi 3B+ |
 | `-D__x86_64__`  |  `-DCORE_I7`   |  `CORE=CORE_I7`   |       Intel Core i7-8550U        |
 
-#### Reporting of skipped deadlines
+### Reporting of skipped deadlines
 
 Reporting of skipped deadlines is enabled by default. Each time a job does not
 meet its deadline, the unmet deadline will be reported as an execution where
@@ -228,7 +228,7 @@ behavior can be achieved by, adding the
 `-DFEAT_PRINT_SKIPPED_DEADLINE_SUPPORT=0` (disable) flag in the compilation
 command line.
 
-#### Synchronised start
+### Synchronised start {#synch-start}
 
 RT-Bench offers a mechanism to synchronise the start of multiple benchmarks. The
 user can customise the initial delay before the start of first period for all
@@ -242,23 +242,27 @@ The resulting delay will be the sum of the values in the two variables mentioned
 above. The default value for these variable is specified in
 `::SYNCH_DELAY_REL_SEC` and `::SYNCH_DELAY_REL_NSEC`.
 
-Finally is also possible to specify only one of these variables if the uses
+Is also possible to specify only one of these variables if the uses
 wishes so.
 
-#### Static Compilation
+Check also the `-s` parameter in the [CLI options](@ref synch-start-cli) and the
+[synch helper](@ref synch-helper.c) program for more instructions on how to
+synchronise benchmarks.
+
+### Static Compilation
 
 For systems that cannot met the [core dependencies](#core-deps) due to version constraints
 but can meet the [system dependencies](#sys-deps) RT-Bench provides two optional ways to get
 have the benchmarks running.
 
-##### With GCC
+#### With GCC
 
 The user can enable static compilation with GCC (which requires the static
 version of the libraries to be installed) with the `FEAT_GCC_STATIC=y` variable
 while issuing a make command. Conversely using `FEAT_GCC_STATIC=n` will make
 sure that the feature stays disabled.
 
-##### With StaticX {#staticx}
+#### With StaticX {#staticx}
 
 If only the dynamic version of the needed libraries is present, the user can
 still enable a "semi-static" compilation by invoking

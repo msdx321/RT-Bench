@@ -1,1 +1,5 @@
 *.pdf
+synch-helper
+get_fifo_max_prio
+*.o
+*.sx

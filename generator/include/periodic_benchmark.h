@@ -68,17 +68,6 @@ struct execution_options {
   long unsigned memory_profiling_time_bucket;
 };
 
-#ifndef SYNCH_DELAY_REL_SEC
-/// Initial delay for the synchronized benchmark start in seconds
-#define SYNCH_DELAY_REL_SEC 0
-#endif
-
-#ifndef SYNCH_DELAY_REL_NSEC
-/// Initial delay for the synchronized benchmark start in nanoseconds (default
-/// 1msecs)
-#define SYNCH_DELAY_REL_NSEC 1000 * 1000
-#endif
-
 /**
  * @brief Handles the timer creation, setup and the periodic execution of a
  * generic benchmark.

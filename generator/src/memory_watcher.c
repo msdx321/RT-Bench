@@ -325,12 +325,10 @@ void stop_memory_watcher() {
   }
 }
 
-/// The symbol that corresponds to the glibc `malloc()`, after the linker has
-/// made the wrapping.
+/// The symbol that corresponds to the glibc `malloc()`, after the linker has made the wrapping.
 extern void *__real_malloc(size_t size);
 
-/// The symbol that corresponds to the armMbed version of `malloc()`, which we
-/// are using when the user requests as fixed size heap.
+/// The symbol that corresponds to the armMbed version of `malloc()`, which we are using when the user requests as fixed size heap.
 extern void *dlmalloc(size_t size);
 
 /** @brief The wrapped `malloc()` function, where the memory watcher is
@@ -382,8 +380,7 @@ void *__wrap_malloc(size_t size) {
   return pointer;
 }
 
-/// The symbol that corresponds to the real `mmap()`, after the linker has
-/// done the wrapping.
+/// The symbol that corresponds to the real `mmap()`, after the linker has done the wrapping.
 extern void *__real_mmap(void *addr, size_t len, int prot, int flags,
                          int fildes, off_t off);
 
@@ -403,8 +400,7 @@ void *__wrap_mmap(void *addr, size_t len, int prot, int flags, int fildes,
   }
 }
 
-/// The symbol that corresponds to the real `sbrk()`, after the linker has
-/// done the wrapping.
+/// The symbol that corresponds to the real `sbrk()`, after the linker has done the wrapping.
 extern void *__real_sbrk(intptr_t increment);
 
 /** @brief Wrapper for `sbrk()`, which will use the user defined heap.
@@ -469,12 +465,10 @@ void *__wrap_sbrk(intptr_t offset) {
   return pointer;
 }
 
-/// The symbol that corresponds to the real `free()`, after the linker has
-/// done the wrapping.
+/// The symbol that corresponds to the real `free()`, after the linker has done the wrapping.
 extern void __real_free(void *ptr);
 
-/// The symbol that corresponds to the armMbed `free()`, implementation, used
-/// when we want a fixed heap.
+/// The symbol that corresponds to the armMbed `free()`, implementation, used when we want a fixed heap.
 extern void dlfree(void *ptr);
 
 /* @brief `free()` wrapper.

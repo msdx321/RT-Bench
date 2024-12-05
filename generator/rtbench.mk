@@ -161,7 +161,7 @@ $(info )
 ## Add this recipe such that 'all' recipe in children makefile become the default one
 default: all
 ## Base recipe to build with the whole RT-Bench core!
-rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc
+rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc utils synch_release
 
 # staticx target to setup the environment if staticx is enabled and not already on path
 ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
@@ -213,6 +213,11 @@ performance_sampler: init $(INCLUDE)/performance_sampler.h
 periodic_benchmark: init $(INCLUDE)/periodic_benchmark.h
 	$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
 
+synch_release: init $(INCLUDE)/synch_release.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/synch_release.c -o $(OBJECT)/synch_release.o $(LDFLAGS)
+
+utils: init $(INCLUDE)/utils.h
+	$(CC) $(CFLAGS) -c $(SOURCE)/utils.c -o $(OBJECT)/utils.o $(LDFLAGS)
+
 main: init $(SOURCE)/main.c
 	$(CC) $(CFLAGS) -c $(SOURCE)/main.c -o $(OBJECT)/main.o $(LDFLAGS)
-

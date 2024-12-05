@@ -1,13 +1,13 @@
 /**
 @defgroup utils Utils
-@brief A collection of useful scripts.
+@brief A collection of useful scripts and programs.
 @details
 The utils module is composed by scripts that provide useful features, for example to automate data collection or processing.
 More information on each script can be found in each script module.
 
 
 
-## Dependencies
+## Scripts common dependencies
 Each scripts has their own dependencies, which are documented on each script page.
 The python dependencies to be able to execute all the scripts are the following:
 
@@ -37,7 +37,7 @@ It can also be used to execute the other scripts by using an exclusive argument:
   - `WSS`: [Working set size test](@ref #wss).
   - `overhead`: [Framework overhead test](@ref #overhead).
 
-## Common CLI options
+## Scripts common CLI options
 
 - `-h`,`--help`: Show the help message.
 - `-tn`,`--tasks-number`: Number of tasks to be executed at each test step ([WCET test](@ref #wcet) excluded, see `-wt`).

@@ -15,6 +15,7 @@
 
 #include "logging.h"
 #include "optional_features.h"
+#include "synch_release.h"
 
 #include <sched.h>
 
@@ -435,7 +436,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
   case 's':
     parsed_args->synch_start = OPT_FEAT_ENABLED;
     if (arg == 0) {
-      parsed_args->synch_start_group = "rt-bench";
+      parsed_args->synch_start_group = SYNCH_GRP_DEFAULT_NAME;
     } else {
       parsed_args->synch_start_group = arg;
     }
@@ -629,8 +630,8 @@ int main(int argc, char **argv) {
      "of "
      "the waiting benchmarks receives SIGUSR1 it will unlock itself and all "
      "other instances in the same group. The benchmarks in the group will then "
-     "start at a common absolute timestamp. Default name for the group is "
-     "'rt-bench'. The user need to put extra care in choosing a unique name "
+     "start at a common absolute timestamp. Default name for the group is '"
+     SYNCH_GRP_DEFAULT_NAME"' The user need to put extra care in choosing a unique name "
      "for each experiment group when there are more than one."},
     {0, 0, 0, 0, "Scheduling options:\n\n", 4},
     {"fifo", 'f', "0<=prio<=99", 0,
