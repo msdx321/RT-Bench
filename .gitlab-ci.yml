@@ -1,5 +1,5 @@
 # The docker image on which the pipelines will be executed
-image: ubuntu:mantic
+image: ubuntu:rolling
 
 stages:
     - build
@@ -21,10 +21,10 @@ build-x86_64:
     script:
         - apt-get -yq update && apt-get -yq upgrade && apt-get -yq install git bash binutils build-essential imagemagick make sed
         - make setup
-        #- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-        #- make clean
-        - make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-    # save bulid result
+        - CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        - make clean
+        - CC=gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+    # save build result
     artifacts:
         untracked: true
         paths: # GitLab does not yet support saving as artifacts untracked files in submodules; their path has to be included manually.
@@ -47,9 +47,9 @@ build-aarch64:
     script:
         - apt-get -yq update && apt-get -yq install git bash binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi crossbuild-essential-arm64 build-essential binutils imagemagick make sed
         - make setup
-        #- CC=aarch64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-        #- make clean
-        - CC=aarch64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        - CROSS_COMPILE=aarch64-linux-gnu- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        - make clean
+        - CROSS_COMPILE=aarch64-linux-gnu- CC=gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 build-riscv:
     stage: build
@@ -58,9 +58,9 @@ build-riscv:
     script:
         - apt-get -yq update && apt-get -yq install git bash binutils build-essential crossbuild-essential-riscv64 binutils-riscv64-linux-gnu imagemagick make sed
         - make setup
-        #- CC=riscv64-linux-gnu-g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
-        #- make clean
-        - CC=riscv64-linux-gnu-gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        - CROSS_COMPILE=riscv64-linux-gnu- CC=g++ make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
+        - make clean
+        - CROSS_COMPILE=riscv64-linux-gnu- CC=gcc make compile-isolbench compile-vision compile-image-filters compile-tacle compile-utils
 
 # run all vision benchmarks on x86_64 once to make sure there are no problems
 test-vision:
