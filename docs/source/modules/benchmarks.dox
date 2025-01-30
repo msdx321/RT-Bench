@@ -115,12 +115,12 @@ Have to be explicitly enabled, see [here](#perf_support) for instructions.
 - `-M`, `--memory-profiling-enable`: Enables runtime memory profiling. Specify `1` to enable or `0` otherwise.
 - `-C`, `--memory-profiling-core`: Core affinity of the runtime memory profiling thread. If not specified, it matches the 'core-affinity' parameter.
 
- __Warning__: `memory-profiling-enable`: must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](../2-Building_with_the_framework.markdown).
+ __Warning__: `memory-profiling-enable`: must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](#compilation).
 
 
 - `-B`,`--memory-profiling-time-bucket`: Period between measurements performed by the runtime memory profiler. If not specified, time bucket of 10ms is set.
 
- __Warning__: 'memory-profiling-enable' must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](../2-Building_with_the_framework.markdown).
+ __Warning__: 'memory-profiling-enable' must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](#compilation).
 
 ### Benchmark-specific arguments and options
 

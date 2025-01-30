@@ -4,7 +4,7 @@ Extending RT-Bench
 [TOC]
 
 This page will guide the user through the procedure to add a new benchmark or benchmark set.
-Another guide that the used should read is the [Documentation guide](4-Documentation_rules.markdown).
+Another guide that the used should read is the [Documentation guide](#docrules).
 
 ## Add a new benchmark set {#new-set}
 
@@ -188,7 +188,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
     ```
 	  Which returns the benchmark-specific measurement.
 
-  Note that, as indicated in [the building guidelines](2-Building_with_the_framework.markdown), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these functions to be called.
+  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these functions to be called.
 
 Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example.
 

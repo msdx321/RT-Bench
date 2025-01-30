@@ -2,6 +2,8 @@
   description = "A reproducible environment for rt-bench";
   inputs = {
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    #the docker ubuntu images used for CI/CD doxygen 1.9.8, so we use the same
+    nixpkgs-doxygen.url="github:nixos/nixpkgs/dd5621df6dcb90122b50da5ec31c411a0de3e538";
     # pinned version of nixpkgs for development dependencies
     nixpkgs.url =
       "github:nixos/nixpkgs/888e0ce8350032a83abd621c6d3d341c5c954887";
@@ -53,6 +55,9 @@
               inherit system;
               crossSystem.config = "aarch64-unknown-linux-gnu";
             };
+            pkgs-doxygen = import inputs.nixpkgs-doxygen {
+              inherit system;
+            };
             native_packages = with pkgs; [
               config.treefmt.build.wrapper
               util-linux
@@ -60,7 +65,7 @@
               coreutils
               ps
               cloc
-              doxygen
+              pkgs-doxygen.doxygen
               graphviz
               gnumake
               git

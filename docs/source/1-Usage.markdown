@@ -13,7 +13,7 @@ Each submodule can be initialized independently by following its instructions, a
 ## Compilation
 
 Benchmarks compilation steps are described in
-[Building with the framework](2-Building_with_the_framework.markdown).
+[Building with the framework](#compilation).
 In addition, each benchmark set has specific instruction in the relative module
 page to build all the benchmarks of the corresponding set. Generally issuing
 a `make` command in the benchmark folder should suffice.
@@ -31,7 +31,7 @@ To enable certain RT-Bench features it is necessary to supply the make command w
 To accommodate so it is possible to add these variables before invoking the `make` command.
 
 Some of options supported by the top-level Makefile are (all options described in
-[Building with the framework](2-Building_with_the_framework.markdown)):
+[Building with the framework](#compilation)):
 
 - `CC=<target-compiler>` to select a specific compiler (default is `gcc`). This enables cross compiling!
 - `CORE=<target-core>` to specify the core model of the target platform. This flag enables performance metric reporting! (**Note:** this flag alone does not enforce cross compiling; please use the previously line as a complement)

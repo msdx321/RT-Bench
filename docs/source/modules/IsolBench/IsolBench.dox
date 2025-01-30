@@ -17,7 +17,7 @@
 *
 * ## Compilation
 * To compile the benchmarks there are several options:
-* - Manual compilation according to [Building with the framework](../../2-Building_with_the_framework.markdown).
+* - Manual compilation according to [Building with the framework](#compilation).
 * - Issuing a single `make` command to compile both benchmarks.
 * - Compiling one benchmark at a time with `make latency` and/or `make bandwidth`.
 *
