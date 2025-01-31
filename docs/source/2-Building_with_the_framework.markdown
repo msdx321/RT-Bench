@@ -230,7 +230,7 @@ behavior can be achieved by, adding the
 command line.
 
 
-#### Static Copilation
+#### Static Compilation
 
 For systems that cannot met the [core dependencies](#core-deps) due to version constraints
 but can meet the [system dependencies](#sys-deps) RT-Bench provides two optional ways to get
