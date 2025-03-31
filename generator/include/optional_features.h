@@ -36,7 +36,7 @@
 #endif
 
 // tell the user if they are using the extended report version
-#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                           \
+#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                   \
      FEAT_EXTENDED_REPORT_SUPPORT == OPT_FEAT_ENABLED)
 #define EXTENDED_REPORT
 #endif
@@ -61,4 +61,22 @@
 /// Indicates whether to print skipped deadelines with 0s.
 #define PRINT_SKIPPED_DEADLINE
 #endif
+
+#if FEAT_MEM_WATCHER_ALIGN == OPT_FEAT_ENABLED && MEM_WATCHER_ALIGN != 1
+#include <stdint.h>
+#if MEM_WATCHER_ALIGN == 8
+typedef uint8_t mem_watcher_address_t;
+#elif MEM_WATCHER_ALIGN == 16
+typedef uint16_t mem_watcher_address_t;
+#elif MEM_WATCHER_ALIGN == 32
+typedef uint32_t mem_watcher_address_t;
+#elif MEM_WATCHER_ALIGN == 64
+typedef uint64_t mem_watcher_address_t;
+#else
+#error "Alignment of "MEM_WATCHER_ALIGN" for the memory watcher is unsupported. Supported alignments for memory watcher are: 1, 8, 16, 32 and 64 bytes"
+#endif
+#else
+typedef void mem_watcher_address_t;
+#endif
+
 #endif

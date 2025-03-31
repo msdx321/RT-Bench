@@ -138,6 +138,12 @@ else
  endif
 endif
 
+# set custom alignment for the memory watcher, to support memory that is not byte addressable
+ifeq ($(subst 1, $(FEAT_EANBLED),$(FEAT_MEM_WATCHER_ALIGN)),$(FEAT_ENABLED))
+override CFLAGS+=-DFEAT_MEM_WATCHER_ALIGN=$(MACRO_FEAT_ENABLED)
+override CFLAGS+=-DMEM_WATCHER_ALIGN=$(MEM_WATCHER_ALIGN)
+endif
+
 CXXFLAGS:=$(CFLAGS)
 
 $(info )

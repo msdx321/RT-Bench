@@ -10,6 +10,7 @@
  * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench
  * contributors. SPDX-License-Identifier: MIT
  */
+#include "optional_features.h"
 #define _FILE_OFFSET_BITS 64
 #include "memory_watcher.h"
 #include "logging.h"
@@ -51,7 +52,7 @@ static struct memory_watcher_config {
    * Possible values are defined by `::memory_watcher_states`.
    */
   enum memory_watcher_states status;
-  void
+  mem_watcher_address_t
       /** @brief The initial value of the program break.
        * This value is used to determine if the program heap was expanded
        * after an allocation.
@@ -210,12 +211,12 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
 
         // @todo `heap_size` is a void*, is it ok to directly cast to `off_t`?
         // Considering we are addressing `/dev/mem` which has a view of all the
-        // physical memory this is conceptually sound.
+        // physical memory this is conceptually sound. This could create problems with fixed heap sizes and memory that is not 1 byte addressable
 
         // Make the mapping aligned to the page size (just drop last 12
         // bits of heap_start and readd them mmap has returned).
         memory_watcher_config.mapping =
-            mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
+         (mem_watcher_address_t*)   mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
                  MAP_SHARED | MAP_POPULATE, memory_watcher_config.heap_fd,
                  ((off_t)heap_start & ~(page_size - 1)));
         if (memory_watcher_config.mapping == MAP_FAILED) {
@@ -226,7 +227,7 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
         }
         // add the 12 bits that we masked to make the mapping page-aligned.
         memory_watcher_config.mapping += ((off_t)heap_start & (page_size - 1));
-        memory_watcher_config.heap_start = heap_start;
+        memory_watcher_config.heap_start = (mem_watcher_address_t*) heap_start;
         memory_watcher_config.fixed_heap_program_break =
             memory_watcher_config.mapping;
         if (strncmp(heap_file, "/dev/mem", 8) == 0) {
@@ -238,7 +239,7 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
         }
       }
       memory_watcher_config.heap_size = heap_size;
-      memory_watcher_config.initial_program_break = sbrk(0);
+      memory_watcher_config.initial_program_break = (mem_watcher_address_t*) sbrk(0);
       elogf(LOG_LEVEL_TRACE,
             "Memory watcher enabled, initial program "
             "break:%p.\n",
@@ -246,7 +247,7 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
       // Initialize the memory watcher configuration struct
       // we get the value of the program break after the
       // preallocation.
-      if (memory_watcher_config.initial_program_break == (void *)-1) {
+      if (memory_watcher_config.initial_program_break == (mem_watcher_address_t *)-1) {
         perror("Cannot find the program break during memory "
                "watcher setup.");
         exit(-1);
