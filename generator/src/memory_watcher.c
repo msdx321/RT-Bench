@@ -163,9 +163,6 @@ void start_memory_watcher(size_t heap_size, void *heap_start,
                           const char *heap_file) {
   int res;
   size_t page_size = sysconf(_SC_PAGESIZE);
-  // heap size has to be incresead by the amount of memory that is not a
-  // multiple of the page size, since we will map page aligned memory.
-  heap_size = heap_size + (heap_size % page_size);
   void *dummy_alloc = NULL;
   // sanity check on the heap size
   if (heap_size > 0) {

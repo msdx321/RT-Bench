@@ -1,22 +1,19 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include "logging.h"
+#include "optional_features.h"
 #include "periodic_benchmark.h"
 #include "sched_attr.h"
-
 #include <argp.h>
 #include <errno.h>
 #include <fenv.h>
 #include <inttypes.h>
 #include <math.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-#include "logging.h"
-#include "optional_features.h"
-
-#include <sched.h>
 
 // Warnings for the optional features that might be troublesome
 #ifndef SCHED_DEADLINE_SUPPORT
@@ -365,11 +362,10 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
     arg_len = strlen(arg);
     // remove extension if present, each output file will have its own extension
     if (strstr(arg + (arg_len - 4), ".") != NULL) {
-			arg_len = arg_len-4; // remove the extension
+      arg_len = arg_len - 4; // remove the extension
     }
-      parsed_args->output_path = malloc(sizeof(char) * arg_len+1);
-      snprintf(parsed_args->output_path, sizeof(char) * arg_len+1, "%s",
-               arg);
+    parsed_args->output_path = malloc(sizeof(char) * arg_len + 1);
+    snprintf(parsed_args->output_path, sizeof(char) * arg_len + 1, "%s", arg);
     if (parsed_args->output_path == NULL) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");
@@ -507,18 +503,8 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
     break;
 #endif
   case ARGP_KEY_END:
-    if (parsed_args->period_sec == 0 && parsed_args->period_nsec == 0)
-      elogf(LOG_LEVEL_INFO, "Using continuous execution model, benchmark will "
-                            "be restarted as soon as it completes.\n");
     if (parsed_args->parsed_deadline > parsed_args->parsed_period) {
       argp_error(state, "Deadlines longer than period are not supported.");
-    }
-    if (parsed_args->parsed_deadline == 0 && parsed_args->parsed_period > 0) {
-      elogf(LOG_LEVEL_INFO, "Unspecified deadline value, deadline will be "
-                            "assumed to be same as period.\n");
-      parsed_args->parsed_deadline = parsed_args->parsed_period;
-      parsed_args->deadline_sec = parsed_args->period_sec;
-      parsed_args->deadline_nsec = parsed_args->period_nsec;
     }
     if ((parsed_args->prio != 100) &&
         ((parsed_args->period > 0) || (parsed_args->deadline > 0) ||
@@ -575,98 +561,107 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
 int main(int argc, char **argv) {
   int res = 0, i;
   struct execution_options parsed_args = {0};
-
   // argp variables
   const char *argp_doc =
       "Run a benchmark periodically, trying to meet the given deadline.";
   const char *argp_args_doc = "";
   struct argp_option argp_options[] = {
 #ifdef JSON_SUPPORT
-    {0, 0, 0, 0, "Configuration input:", 1},
-    {"configuration-file", 'g', "config_path", 0,
-     "Specify the JSON file describing the configuration to use. Following "
-     "options complement or override the JSON description. Conversely, options "
-     "specified before are complemented or overwritten."},
+      {0, 0, 0, 0, "Configuration input:", 1},
+      {"configuration-file", 'g', "config_path", 0,
+       "Specify the JSON file describing the configuration to use. Following "
+       "options complement or override the JSON description. Conversely, "
+       "options "
+       "specified before are complemented or overwritten."},
 #endif
-    {0, 0, 0, 0, "Period and deadline options:", 2},
-    {"deadline", 'd', "secs", 0,
-     "The benchmark deadline in seconds. Can be an integer, float or in "
-     "scientific notation. Must be less or equal than the benchmark period."},
-    {"period", 'p', "secs", 0,
-     "The benchmark period, in seconds. `0` when omitted. Can be an integer, "
-     "float or in scientific notation. If period is `0` then the next job will "
-     "be executed directly after the current job, in a back-to-back fashion."},
-    {0, 0, 0, 0, "Execution options:", 3},
-    {"core-affinity", 'c', "core0,core1,...", 0,
-     "The benchmark core affinity, expressed as a comma separated list. A "
-     "single core id is also accepted."},
-    {"mem-limit", 'm', "bytes[GMK]", 0,
-     "The maximum amount of dynamic memory allocated during the periodic "
-     "execution. If exceeded, the benchmark will crash. Specified as an "
-     "integer plus an optional magnitude modifier: K=kilobytes, M=megabytes, "
-     "G=gigabytes. Without a magnitude modifier specified the value is assumed "
-     "to be in bytes. 0 Means no limit, and it is the default setting."},
-    {"heap-location", 'H', "0xdeadbeef or path/to/file", 0,
-     "The location of the heap, requires mem-limit to be set. "
-     "Make sure to have enough space for both the benchmark and malloc's data "
-     "structures. "
-     "It can be either a file or a physical address (in this case /dev/mem "
-     "will be used). "},
-    {"tasks-number", 't', "integer>=0", 0,
-     "The number of tasks to be executed. 0 means until the program receives a "
-     "SIGINT. Default is 0."},
-    {0, 0, 0, 0, "Scheduling options:\n\n", 4},
-    {"fifo", 'f', "0<=prio<=99", 0,
-     "Set SCHED_FIFO priority with specified priority. Need root."},
+      {0, 0, 0, 0, "Period and deadline options:", 2},
+      {"deadline", 'd', "secs", 0,
+       "The benchmark deadline in seconds. Can be an integer, float or in "
+       "scientific notation. Must be less or equal than the benchmark period."},
+      {"period", 'p', "secs", 0,
+       "The benchmark period, in seconds. `0` when omitted. Can be an integer, "
+       "float or in scientific notation. If period is `0` then the next job "
+       "will "
+       "be executed directly after the current job, in a back-to-back "
+       "fashion."},
+      {0, 0, 0, 0, "Execution options:", 3},
+      {"core-affinity", 'c', "core0,core1,...", 0,
+       "The benchmark core affinity, expressed as a comma separated list. A "
+       "single core id is also accepted."},
+      {"mem-limit", 'm', "bytes[GMK]", 0,
+       "The maximum amount of dynamic memory allocated during the periodic "
+       "execution. If exceeded, the benchmark will crash. Specified as an "
+       "integer plus an optional magnitude modifier: K=kilobytes, M=megabytes, "
+       "G=gigabytes. Without a magnitude modifier specified the value is "
+       "assumed "
+       "to be in bytes. 0 Means no limit, and it is the default setting."},
+      {"heap-location", 'H', "0xdeadbeef or path/to/file", 0,
+       "The location of the heap, requires mem-limit to be set. "
+       "Make sure to have enough space for both the benchmark and malloc's "
+       "data "
+       "structures. "
+       "It can be either a file or a physical address (in this case /dev/mem "
+       "will be used). "},
+      {"tasks-number", 't', "integer>=0", 0,
+       "The number of tasks to be executed. 0 means until the program receives "
+       "a "
+       "SIGINT. Default is 0."},
+      {0, 0, 0, 0, "Scheduling options:\n\n", 4},
+      {"fifo", 'f', "0<=prio<=99", 0,
+       "Set SCHED_FIFO priority with specified priority. Need root."},
 #ifdef SCHED_DEADLINE_SUPPORT
-    {"sched-runtime", 'T', "ns", 0,
-     "Set SCHED_DEADLINE runtime. Alternative to --fifo. Need root."},
-    {"sched-deadline", 'D', "ns", 0,
-     "Set SCHED_DEADLINE deadline. Alternative to --fifo. Need root."},
-    {"sched-period", 'P', "ns", 0,
-     "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least "
-     "--sched-period has to be specified to set sched_deadline params. If "
-     "deadline is not specified, deadline is set to period. If runtime is not "
-     "specified, runtime is set to deadline. NOTE: These parameters are "
-     "different from --period and --deadline used to control the repetitive "
-     "execution of the thread. To generate valid execution that are not "
-     "truncated under hard server reservation, period < sched-period and "
-     "deadline < sched-deadline."},
+      {"sched-runtime", 'T', "ns", 0,
+       "Set SCHED_DEADLINE runtime. Alternative to --fifo. Need root."},
+      {"sched-deadline", 'D', "ns", 0,
+       "Set SCHED_DEADLINE deadline. Alternative to --fifo. Need root."},
+      {"sched-period", 'P', "ns", 0,
+       "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least "
+       "--sched-period has to be specified to set sched_deadline params. If "
+       "deadline is not specified, deadline is set to period. If runtime is "
+       "not "
+       "specified, runtime is set to deadline. NOTE: These parameters are "
+       "different from --period and --deadline used to control the repetitive "
+       "execution of the thread. To generate valid execution that are not "
+       "truncated under hard server reservation, period < sched-period and "
+       "deadline < sched-deadline."},
 #endif
-    {0, 0, 0, 0, "Reporting options:", 5},
+      {0, 0, 0, 0, "Reporting options:", 5},
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
-    {"memory-profiling-enable", 'M', "bool", 0,
-     "Enables runtime memory profiling. Specify '1' to enable or '0' "
-     "otherwise."},
-    {"memory-profiling-core", 'C', "core0, core1,...", 0,
-     "Core affinity of the runtime memory profiling thread. If not specified, "
-     "it matches the 'core-affinity' parameter. Warning: "
-     "'memory-profiling-enable' must be asserted for this parameter to take "
-     "effect."},
-    {"memory-profiling-time-bucket", 'B', "ns", 0,
-     "Period between measurements performed by the runtime memory profiler. If "
-     "not specified, time bucket of 10ms is set. Warning: "
-     "'memory-profiling-enable' must be asserted for this parameter to take "
-     "effect."},
+      {"memory-profiling-enable", 'M', "bool", 0,
+       "Enables runtime memory profiling. Specify '1' to enable or '0' "
+       "otherwise."},
+      {"memory-profiling-core", 'C', "core0, core1,...", 0,
+       "Core affinity of the runtime memory profiling thread. If not "
+       "specified, "
+       "it matches the 'core-affinity' parameter. Warning: "
+       "'memory-profiling-enable' must be asserted for this parameter to take "
+       "effect."},
+      {"memory-profiling-time-bucket", 'B', "ns", 0,
+       "Period between measurements performed by the runtime memory profiler. "
+       "If "
+       "not specified, time bucket of 10ms is set. Warning: "
+       "'memory-profiling-enable' must be asserted for this parameter to take "
+       "effect."},
 #endif
-    {"log-level", 'l', "log-lvl", 0,
-     "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
-     "Print benchmark stats to output file.\n3 - Print benchmark stats to "
-     "stdout.\n4 - Print also informative messages on stderr.\n5 - Print also "
-     "additional debug information.\nDefault is 3."},
-    {"output", 'o', "output_path", 0,
-     "Where the info on the benchmark execution will be written. If not "
-     "supplied, \"./timing.csv\" will be used."},
-    {0, 0, 0, 0, "Benchmark arguments and options:", 6},
-    {"bmark-args", 'b', "arg opt ...", 0,
-     "A space-separated list of arguments and options that must be relayed "
-     "directly to the benchmark. It must be specified after every other option "
-     "since everything after it will be passed directly to the benchmark "
-     "routine."},
-    {0, 0, 0, 0, "Informational options:\n", -1},
-    {NULL, 'h', NULL, 0, NULL},
-    {0, 0, 0, 0, 0, 0}
-  };
+      {"log-level", 'l', "log-lvl", 0,
+       "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
+       "Print benchmark stats to output file.\n3 - Print benchmark stats to "
+       "stdout.\n4 - Print also informative messages on stderr.\n5 - Print "
+       "also "
+       "additional debug information.\nDefault is 3."},
+      {"output", 'o', "output_path", 0,
+       "Where the info on the benchmark execution will be written. If not "
+       "supplied, \"./timing.csv\" will be used."},
+      {0, 0, 0, 0, "Benchmark arguments and options:", 6},
+      {"bmark-args", 'b', "arg opt ...", 0,
+       "A space-separated list of arguments and options that must be relayed "
+       "directly to the benchmark. It must be specified after every other "
+       "option "
+       "since everything after it will be passed directly to the benchmark "
+       "routine."},
+      {0, 0, 0, 0, "Informational options:\n", -1},
+      {NULL, 'h', NULL, 0, NULL},
+      {0, 0, 0, 0, 0, 0}};
   // initializing argp struct
   struct argp argp = {0};
   argp.args_doc = argp_args_doc;
@@ -679,6 +674,28 @@ int main(int argc, char **argv) {
   if (res != 0) {
     perror("Error during argument parsing");
     return EXIT_FAILURE;
+  }
+
+#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
+    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
+  if (benchmark_verbosity > LOG_LEVEL_ERR) {
+    log_filep = open_log_file(parsed_args.output_path);
+    elogf(LOG_LEVEL_TRACE, "Opened Log file\n");
+    if (log_filep == NULL) {
+      perror("Error during log file setup\n");
+      return -1;
+    }
+  }
+#endif
+  if (parsed_args.period_sec == 0 && parsed_args.period_nsec == 0)
+    elogf(LOG_LEVEL_INFO, "Using continuous execution model, benchmark will "
+                          "be restarted as soon as it completes.\n");
+  if (parsed_args.parsed_deadline == 0 && parsed_args.parsed_period > 0) {
+    elogf(LOG_LEVEL_INFO, "Unspecified deadline value, deadline will be "
+                          "assumed to be same as period.\n");
+    parsed_args.parsed_deadline = parsed_args.parsed_period;
+    parsed_args.deadline_sec = parsed_args.period_sec;
+    parsed_args.deadline_nsec = parsed_args.period_nsec;
   }
 
   elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");

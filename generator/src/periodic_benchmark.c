@@ -172,12 +172,9 @@ static void stop_benchmark(int status, void *arg) {
     }
   }
 #endif
-#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
-    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
   if (log_filep != NULL) {
     close_output_file(log_filep);
   }
-#endif
   if (deadline_timer != NULL) {
     elogf(LOG_LEVEL_TRACE, "Deleting deadline timer\n");
     res = timer_delete(deadline_timer);
@@ -483,7 +480,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // status variables
   int res;
 
-#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED && ! defined DEBUG_FILE
   // Initialize the performance sampler thread
   if (exec_opts->memory_profiling_enable) {
     elogf(LOG_LEVEL_TRACE, "Initializing runtime performance sampling\n");
@@ -520,17 +517,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
   }
   elogf(LOG_LEVEL_TRACE, "Execution environment setup complete\n");
-#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
-    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
-  if (benchmark_verbosity >= LOG_LEVEL_ERR) {
-    log_filep = open_log_file(exec_opts->output_path);
-    elogf(LOG_LEVEL_TRACE, "Opened Log file\n");
-    if (log_filep == NULL) {
-      elogf(LOG_LEVEL_ERR, "Error during log file setup\n");
-      return -1;
-    }
-  }
-#endif
   if (benchmark_verbosity == LOG_LEVEL_FILE) {
     elogf(LOG_LEVEL_TRACE, "Starting output file setup\n");
     filep = open_output_file(DEFAULT_OUTPUT_PATH, exec_opts->output_path,

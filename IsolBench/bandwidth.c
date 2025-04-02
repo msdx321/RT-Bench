@@ -168,10 +168,28 @@ int benchmark_init(int parameters_num, void **parameters) {
   // adjust parameters list to have a dummy argument at position 0 (to fool
   // getopt)
   int opt_num = parameters_num + 1;
+  ologf(LOG_LEVEL_TRACE,"allocatin parameters\n");
   char **opts = malloc(sizeof(char *) * opt_num);
+  ologf(LOG_LEVEL_TRACE,"malloc done\n");
+  if (opts == NULL) {
+    elogf(LOG_LEVEL_ERR, "Failed to allocate memory\n");
+    return -1;
+  }
+  ologf(LOG_LEVEL_TRACE,"copying parameters\n");
   opts[0] = "bandwidth";
-  memcpy(opts + 1, parameters, sizeof(char *) * parameters_num);
+  ologf(LOG_LEVEL_TRACE,"parameters_num %d\n", parameters_num);
+  ologf(LOG_LEVEL_TRACE,"opt_num %d\n", opt_num);
+  for (i = 0; i < parameters_num; i++) {
+    ologf(LOG_LEVEL_TRACE,"parameters[%d]: %p\n", i, parameters[i]);
+		opts[i + 1] = parameters[i];
+    ologf(LOG_LEVEL_TRACE,"%p=opt[%d]: %p\n", opts+i+1, i+1, opts[i+1]);
+  }
+  for (i = 0; i < opt_num; i++) {
+    ologf(LOG_LEVEL_TRACE,"%p=opt[%d]: %p\n", opts+i,i, opts[i]);
+  }
+  ologf(LOG_LEVEL_TRACE,"starting to parse opts\n");
   while ((opt = getopt(opt_num, opts, "m:a:t:i:h")) != -1) {
+    ologf(LOG_LEVEL_TRACE,"case %c, optarg %s\n", opt, optarg);
     switch (opt) {
     case 'm': /* set memory size */
       g_mem_size = 1024 * strtol(optarg, NULL, 0);
@@ -195,6 +213,7 @@ int benchmark_init(int parameters_num, void **parameters) {
       break;
     }
   }
+  free(opts);
   /*
    * allocate contiguous region of memory
    */

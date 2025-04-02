@@ -64,12 +64,21 @@ extern FILE *log_filep;
  * nothing to avoid printing errors when the optional benchmark log file is not
  * open.
  */
+#ifndef DEBUG_FILE
 #define flogf(mesg_log_level, file, format, ...)                               \
   if (&file != &log_filep || file != NULL) {                                   \
     if (mesg_log_level <= benchmark_verbosity) {                               \
       fprintf(file, format, ##__VA_ARGS__);                                    \
     }                                                                          \
   }
+#else
+#define flogf(mesg_log_level, file, format, ...)                               \
+  if (log_filep != NULL) {                                   \
+    if (mesg_log_level <= benchmark_verbosity) {                               \
+      fprintf(log_filep, format, ##__VA_ARGS__);                               \
+    }                                                                          \
+  }
+#endif
 
 /** @brief Logging interface for `stdout`.
  * @param[in] mesg_log_level The message log level.

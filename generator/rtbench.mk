@@ -112,6 +112,12 @@ ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_BMARK_LOG_FILE)),$(FEAT_ENABLED))
  override CFLAGS+=-DFEAT_BMARK_LOG_FILE_SUPPORT=$(MACRO_FEAT_ENABLED)
 endif
 
+# Check if extended report is desired
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_DEBUG_FILE)),$(FEAT_ENABLED))
+ $(info Benchmark debug logs to file are enabled)
+ override CFLAGS+=-DFEAT_DEBUG_FILE=$(MACRO_FEAT_ENABLED)
+endif
+
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_GCC_STATIC)),$(FEAT_ENABLED))
  ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
   $(error Gcc static compilation and staticx are mutually exclusive, please disable one of them)
