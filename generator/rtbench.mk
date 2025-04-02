@@ -24,7 +24,7 @@ BASE_O=$(OBJECT)/*.o
 override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
 
 # Add linker's flags
-override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
+override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap
 
 #optional features
 
@@ -187,7 +187,8 @@ ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
 	@git submodule update --init --recursive $(SOURCE)/dlmalloc
 endif
 	@echo "setting up dlmalloc"
-	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/\(extern void \*\)mbed_sbrk/\1rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
