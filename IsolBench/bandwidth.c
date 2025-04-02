@@ -139,12 +139,12 @@ int bench_write() {
  * @param[in] argv Arguments array.
  * */
 void usage(int argc, char *argv[]) {
-  printf("Usage: $ %s [<option>]*\n\n", argv[0]);
-  printf("-m: memory size in KB. deafult=8192\n");
-  printf("-a: access type - read, write. default=read\n");
-  printf("-i: iterations. default=5\n");
-  printf("-h: help\n");
-  printf("\nExamples: \n$ bandwidth -m 8192 -a read -i 1  <- 8MB read "
+  ologf(LOG_LEVEL_INFO,"Usage: $ %s [<option>]*\n\n", argv[0]);
+  ologf(LOG_LEVEL_INFO,"-m: memory size in KB. deafult=8192\n");
+  ologf(LOG_LEVEL_INFO,"-a: access type - read, write. default=read\n");
+  ologf(LOG_LEVEL_INFO,"-i: iterations. default=5\n");
+  ologf(LOG_LEVEL_INFO,"-h: help\n");
+  ologf(LOG_LEVEL_INFO,"\nExamples: \n$ bandwidth -m 8192 -a read -i 1  <- 8MB read "
          ",1 one iteration.\n");
   exit(1);
 }
