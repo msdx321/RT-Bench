@@ -146,6 +146,15 @@ endif
 
 # set custom alignment for the memory watcher, to support memory that is not byte addressable
 ifeq ($(subst 1, $(FEAT_EANBLED),$(FEAT_MEM_WATCHER_ALIGN)),$(FEAT_ENABLED))
+ifeq ($(MEM_WATCHER_ALIGN),1)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=1U
+else ifeq ($(MEM_WATCHER_ALIGN),8)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=8U
+else ifeq ($(MEM_WATCHER_ALIGN),16)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=16U
+else
+$(error alignment of $(MEM_WATCHER_ALIGN) is not supported, only 1, 8 and 16 are supported)
+endif
 override CFLAGS+=-fpack-struct=$(MEM_WATCHER_ALIGN)
 override CFLAGS+=-DFEAT_MEM_WATCHER_ALIGN=$(MACRO_FEAT_ENABLED)
 override CFLAGS+=-DMEM_WATCHER_ALIGN=$(MEM_WATCHER_ALIGN)
@@ -192,14 +201,13 @@ ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
 	@git submodule update --init --recursive $(SOURCE)/dlmalloc
 endif
-	@echo "setting up dlmalloc"
 	sed -i 's/\(extern void \*\)mbed_sbrk/\1rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(DLMALLOC_ALIGN) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
 
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
