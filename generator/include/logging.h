@@ -46,6 +46,21 @@ enum log_level {
                    ///< validity checks)
 };
 
+/// Enum to determine if data in the extra_measurement struct is valid.
+enum extra_measurement_status {
+  EXTRA_MEASUREMENT_INVALID, ///< The extra data is invalid, so it should not be
+                             ///< printed.
+  EXTRA_MEASUREMENT_VALID    ///< The extra data is valid and can be printed.
+};
+
+/// Struct used by benchmarks that need to report extra metrics.
+struct benchmark_extra_data {
+  int num_elements; ///< How many extra elements are being reported.
+  char *header;     ///< The header string that needs to be printed for the csv
+                    ///< output.
+  double *data;     ///< The array of extra metrics.
+};
+
 /// The benchmark verbosity.
 extern enum log_level benchmark_verbosity;
 
@@ -123,6 +138,7 @@ extern FILE *log_filep;
  * when the job started.
  * @param[in] clock_count_end The last value for the clock cycles counter when
  * the job ended.
+ * @param[in] extra_measurement_status controls if the extra measurements should be printed or not.
  */
 void print_statistics(FILE *file, unsigned long long period_start_clocks,
                       unsigned long long period_end_clocks,
@@ -136,7 +152,8 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
                       long unsigned clock_count_start, long unsigned l1_ref_end,
                       long unsigned l1_miss_end, long unsigned l2_ref_end,
                       long unsigned l2_miss_end, long unsigned inst_retired_end,
-                      long unsigned clock_count_end, float extra_measurement);
+                      long unsigned clock_count_end,
+                      enum extra_measurement_status extra_measurement_status);
 
 /** @brief Open an output file with prefix and a suffix with a fallback name.
  * @param[in] default_filename The default filename to use if the filename

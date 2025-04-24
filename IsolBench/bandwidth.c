@@ -106,7 +106,7 @@ void print_bandwidth(int param) {
   bw = (float)g_nread / dur_in_sec / 1024.0f / 1024.0f;
   flogf(LOG_LEVEL_FILE, log_filep, "B/W = %.2f MB/s | ", bw);
   flogf(LOG_LEVEL_FILE, log_filep, "average = %.2f ns\n\n",
-        (dur * 1000) / (g_nread / CACHE_LINE_SIZE));
+        (dur * 1000) / ((float)g_nread / CACHE_LINE_SIZE));
 }
 
 /** @brief Read memory access.
@@ -208,6 +208,15 @@ int benchmark_init(int parameters_num, void **parameters) {
   for (i = 0; i < g_mem_size / sizeof(int); i++)
     g_mem_ptr[i] = i;
 
+  // setup extra measurement struct
+  extra_measurement.num_elements = 1;
+  extra_measurement.header = ",bandwidth(MB/S)";
+  extra_measurement.data = malloc(sizeof(double));
+  if (extra_measurement.data == NULL) {
+    elogf(LOG_LEVEL_ERR, "Cannot allocate memory for extra measurement\n");
+    return -1;
+  }
+
   /* print experiment info before starting */
   flogf(LOG_LEVEL_FILE, log_filep, "memsize=%d KB, type=%s\n",
         g_mem_size / 1024, ((acc_type == READ) ? "read" : "write"));
@@ -216,16 +225,6 @@ int benchmark_init(int parameters_num, void **parameters) {
 
   return 0;
 }
-
-/**
- * @brief This handler returns the bandwidth as the extra measurement metric.
- * @details
- * This function returns a string mentioning the metric of the benchmark
- * (here, the bandwidth in MBps). This function is only called if the benchmark
- * has been built with the `-DEXTENDED_REPORT`.
- * @returns a constant string starting with `,` that extends the report header.
- */
-const char *benchmark_log_header() { return ",bandwidth(MB/S)"; }
 
 /**
  * @brief This handler is where the memory bandwidth will be computed.
@@ -266,10 +265,10 @@ void benchmark_execution(int parameters_num, void **parameters) {
  * been built with the `-DEXTENDED_REPORT`.
  * @returns The measured bandwidth (MBps)
  */
-float benchmark_log_data() {
+void benchmark_log_data(void) {
   float dur = g_end - g_start;
   float dur_in_sec = (float)dur / 1000000.0f;
-  return (float)g_nread / dur_in_sec / 1024.0f / 1024.0f;
+  *extra_measurement.data = (double)g_nread / dur_in_sec / 1024.0f / 1024.0f;
 }
 
 /**
@@ -280,5 +279,10 @@ float benchmark_log_data() {
  * @details It will free `::g_mem_ptr`.
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
-  free(g_mem_ptr);
+  if (extra_measurement.data != NULL) {
+    free(extra_measurement.data);
+  }
+  if (g_mem_ptr != NULL) {
+    free(g_mem_ptr);
+  }
 }

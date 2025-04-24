@@ -18,5 +18,10 @@ bandwidth: rtbench
 	$(STATICX_REQ)
 	$(STATICX_CMD) bandwidth bandwidth.sx
 
+bandwidth-threads: rtbench
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) bandwidth-threads.c $(BASE_O) -o bandwidth-threads $(LDFLAGS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) bandwidth-threads bandwidth-threads.sx
+
 clean:
 	@rm -f *.o *.sx $(PGMS) $(BASE_O)

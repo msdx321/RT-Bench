@@ -9,6 +9,7 @@
  */
 #ifndef PERIODIC_BENCHMARK_H
 #define PERIODIC_BENCHMARK_H
+#include "logging.h"
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -78,9 +79,11 @@ int periodic_benchmark(struct execution_options *exec_opts);
  * implements them.
  */
 #ifdef EXTENDED_REPORT
-extern const char *benchmark_log_header();
-
-extern float benchmark_log_data();
+/* The extra measurement struct which will hold the extra measurements for the
+ * current benchmark.
+ */
+extern struct benchmark_extra_data extra_measurement;
+void benchmark_log_data(void);
 #endif
 
 // The benchmark init function, which will be defined by the benchmark itself
