@@ -263,11 +263,10 @@ void benchmark_execution(int parameters_num, void **parameters) {
  * This function returns the experienced bandwidth (MBps) as a float after
  * each execution phase. This function is only called if the benchamrk has
  * been built with the `-DEXTENDED_REPORT`.
- * @returns The measured bandwidth (MBps)
  */
 void benchmark_log_data(void) {
-  float dur = g_end - g_start;
-  float dur_in_sec = (float)dur / 1000000.0f;
+  double dur = g_end - g_start;
+  double dur_in_sec = (double)dur / 1000000.0f;
   *extra_measurement.data = (double)g_nread / dur_in_sec / 1024.0f / 1024.0f;
 }
 

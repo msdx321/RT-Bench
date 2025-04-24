@@ -230,7 +230,7 @@ void print_performance_counters(
 
 /** @brief Print extra data for benchmarks that have the EXTENDED_REPORT macro
  * defined.
- * @param[in] data The struct that contains the benchmark extra data.
+ * @param[in] file The output file where the extra data will be printed.
  */
 void print_extra_data(FILE *file) {
   int i;

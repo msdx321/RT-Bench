@@ -154,7 +154,7 @@ void print_bandwidth(int param) {
 /** @brief Read memory access.
  * @param[in] mem_ptr location in memory to access
  * @param[in] mem_size size of memory to access
- * @param[out] mem_size total number of bytes read
+ * @param[out] nread total number of bytes read
  * @returns Amount of memory read.
  */
 static inline int64_t bench_read(int *mem_ptr, int mem_size,
@@ -171,7 +171,7 @@ static inline int64_t bench_read(int *mem_ptr, int mem_size,
 /** @brief Write memory access.
  * @param[in] mem_ptr location in memory to access
  * @param[in] mem_size size of memory to access
- * @param[out] mem_size total number of bytes written
+ * @param[out] nread total number of bytes written
  * @returns Amount of memory read.
  */
 static inline int bench_write(int *mem_ptr, int mem_size,

@@ -247,7 +247,6 @@ void benchmark_execution(int parameters_num, void **parameters) {
  * This function returns the experienced latency (ns) as a float after
  * each execution phase. This function is only called if the benchamrk has
  * been built with the `-DEXTENDED_REPORT`.
- * @returns The measured latency (ns)
  */
 void benchmark_log_data(void) { *extra_measurement.data = (double)avglat; }
 

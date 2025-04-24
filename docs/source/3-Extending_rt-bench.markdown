@@ -167,7 +167,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
   Global variables can be used to maintain data between different calls of these three functions.
 
 5. The benchmark files must import the following libraries (provided by the [RT-Bench Generator](@ref #generator)):
-  - The logging library provieded by RT-Bench.
+  - The logging library provided by RT-Bench.
   ```
   #include "logging.h"
   ```
@@ -176,21 +176,19 @@ When adding and integrating new benchmark in an existing benchmark set the follo
     #include "periodic_benchmark.h"
   ```
 
-6. _Optionally_, the benchmark can export functions for the extending the report interface. For this, only two functions are necessary:
-	-
+6. _Optionally_, the benchmark can extend the report interface to report custom metrics.
+	- The `perioic_benchmark.h` exposes a `struct benchmark_extra_data extra_measurement` that needs to be initialized with the header , the number and a data array of to hold extra metrics.
+	Initializing these members is the responsibility of `benchmark_init()` and deallocation, if needed, is responsibility of `benchmark_teardown()`.
+	- The benchmark needs to expose the following function:
     ```
-    const char* benchmark_log_header()
+    void benchmark_log_data(void)
     ```
-  	Which returns a constant string to extend the csv header (e.g., ",bandwidth(MB/S)" for isolbench/bandwidth)
-	-
-    ```
-    float benchmark_log_data()
-    ```
-	  Which returns the benchmark-specific measurement.
+	  Which needs to update the data array with the benchmark-specific measurement. This function will be called at the end of every task.
 
-  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these functions to be called.
+  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these metrics to be reported.
 
-Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example.
+Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example without extra metrics.
+An The [IsolBench](@ref #IsolBench) suite has benchmarks that report extra metrics and can be referred to as working examples.
 
 
 ## Add scripts and utilities

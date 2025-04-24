@@ -132,8 +132,6 @@ extern FILE *log_filep;
  * counter.
  * @param[in] inst_retired_end The last value from the instruction retired
  * counter.
- * @param[in] extra_measurement The benchmar-specific measurement return by the
- * benchmark in question.
  * @param[in] clock_count_start The first value for the clock cycles counter
  * when the job started.
  * @param[in] clock_count_end The last value for the clock cycles counter when
