@@ -1,18 +1,16 @@
 #################################
 # Original Author: Sravanthi Kota Venkata
 #################################
+RTBENCH_PATH=${TOP_DIR}/..
+include ${RTBENCH_PATH}/generator/rtbench.mk
 
-include ../../../../../generator/Makefile
+override CFLAGS += -D$(INPUT)
 
-CC=gcc
-
-override CFLAGS += -DGCC -D$(INPUT)
-
-ifdef CHECK_OUTPUT
+ifdef CHECK_OUTPUT #TODO: akin to `EXTENDED_REPORT`?
 override CFLAGS+= -DCHECK
 endif
 
-BASE_DIR := $(TOP_DIR)/../generator
+BASE_DIR := $(TOP_DIR)/../generator/src
 COMMON_DIR := $(TOP_DIR)/common/c
 TIMING_DIR := $(TOP_DIR)/cycles/$(BMARK)
 BMARK_DIR := $(TOP_DIR)/benchmarks/$(BMARK)
@@ -31,17 +29,17 @@ C_RESULT=$(BMARK_DIR)/result
 
 # Source files for C and Common folders
 
-BASE_SRC := $(wildcard $(BASE_DIR)/*.c)
+BASE_SRC := $(wildcard $(BASE_DIR)/*.c) $(wildcard $(BASE_DIR)/dlmalloc/source/*.c)
 C_SRC := $(wildcard $(C_DIR)/*.c)
 COMMON_SRC := $(wildcard $(COMMON_DIR)/*.c)
 
 # RULES
 EXE =
 INCLUDES = -I$(COMMON_DIR) -I$(C_DIR) -I$(BASE_DIR)
-COMPILE_C = $(CC) $(CFLAGS) -O2 $(INCLUDES)
+COMPILE_C = $(CROSS_COMPILE)$(CC) $(CFLAGS) -O2 $(INCLUDES)
 C_LIBS = $(LDFLAGS)
-#COMPILE_C = $(CC) $(CFLAGS) -DGENERATE_OUTPUT -O2 $(INCLUDES)
-COMPILE_G = $(CC) $(CFLAGS) -g $(INCLUDES)
+#COMPILE_C = $(CROSS_COMPILE)$(CC) $(CFLAGS) -DGENERATE_OUTPUT -O2 $(INCLUDES)
+COMPILE_G = $(CROSS_COMPILE)$(CC) $(CFLAGS) -g $(INCLUDES)
 COMPILE_PG = $(COMPILE_G) -pg
 
 
@@ -53,6 +51,8 @@ c-run: compile
 debug:
 	@echo Running Debug C Version of the benchmark
 	@$(COMPILE_G) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 
 debug-valgrind: debug
 	@valgrind --leak-check=full -s ./$(BMARK)$(EXE) $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
@@ -63,6 +63,8 @@ debug-gdb: debug
 debug-asan:
 	@echo Running Debug C Version of the benchmark
 	@$(COMPILE_G) -fsanitize=address $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(CLIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 	@./$(BMARK)$(EXE) $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT)
 
 
@@ -72,18 +74,22 @@ profile: compile-prof
 	@gprof $(BMARK)$(EXE)
 
 
-compile: $(C_SRC)
+compile: rtbench $(C_SRC)
 	@echo
 	@echo -e "Benchmark\t\t- $(BMARK)"
 	@echo -e "${COMPILE_C}"
 	@$(COMPILE_C) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	echo "$(STATICX_REQ)"
+	echo "$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx"
 
 compile-prof: $(C_SRC)
 	@echo
 	@echo -e "Benchmark\t\t- $(BMARK)"
 	@$(COMPILE_PG) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
 
 all: c-run
 
 clean:
-	@-rm $(BMARK)
+	@-rm -f $(BMARK) $(BMARK)$(EXE) $(BMARK)$(EXE).sx

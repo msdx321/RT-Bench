@@ -1,13 +1,15 @@
-include ../generator/Makefile
-CC=gcc
-PGMS=overhead
-BASE_SRC=$(wildcard ../generator/*.c)
-BASE_O=$(patsubst %.c,%.o,$(BASE_SRC))
-override CFLAGS+=-O2 -Wall -g -I../generator -DGCC
-CXXFLAGS=$(CFLAGS)
+include ../generator/rtbench.mk
+PGMS=overhead get_fifo_max_prio
 
 all: $(PGMS)
-overhead:overhead.o $(BASE_O)
-	$(CC) $(CFLAGS) $< $(BASE_SRC) -o $@ $(LDFLAGS)
+overhead:overhead.c rtbench
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< $(BASE_O) -o $@ $(LDFLAGS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) overhead overhead.sx
+get_fifo_max_prio: get_fifo_max_prio.c
+	$(CROSS_COMPILE)$(CC) $< -o $@ -O2 -Wall -g -DGCC -D_GNU_SOURCE
+	$(STATICX_REQ)
+	$(STATICX_CMD) get_fifo_max_prio get_fifo_max_prio.sx
+
 clean:
-	rm *.o $(PGMS) $(BASE_O)
+	@rm -f *.o *.sx $(PGMS) $(BASE_O)

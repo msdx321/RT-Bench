@@ -10,6 +10,10 @@
 #ifndef PERFORMANCE_SAMPLER_H
 #define PERFORMANCE_SAMPLER_H
 
+#include "optional_features.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <sched.h>
 #include <stdio.h>
 #include "performance_counters.h"
@@ -17,7 +21,7 @@
 /// 1 KB in bytes
 #define KB 1024
 /// 1 MB in bytes
-#define MB KB*KB
+#define MB KB *KB
 
 ///Struct used to hold data sampled from the counters.
 struct sampling_data {
@@ -25,7 +29,8 @@ struct sampling_data {
 	struct perf_counters sum; ///< Sum of measurement recorded.
 };
 
-int setup_perf_sampler(unsigned iterations, cpu_set_t core_affinity, long unsigned time_bucket);
+int setup_perf_sampler(unsigned iterations, cpu_set_t core_affinity,
+		       long unsigned time_bucket);
 
 /// Assumes stop has been performed before
 /// Returns 0 on errors
@@ -35,6 +40,6 @@ void start_sampling(void);
 
 void stop_sampling(void);
 
-void log_samples(FILE* filep);
+void log_samples(FILE *filep);
 
 #endif /* PERFORMANCE_SAMPLER */

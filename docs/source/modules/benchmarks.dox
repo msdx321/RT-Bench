@@ -15,12 +15,13 @@ These arguments and options are described below and in the benchmark help messag
 
 ### Configuration input
 
-Has to be explicitly enabled, see [here](#json_support) for instructions.
+May be not available, see [here](#json_support) for details.
 
 - `-g`,`--configuration-file`: Specify the JSON file describing the configuration to use. Following options complement or override the JSON description. Conversely, options specified before are complemented or overwritten.
 
 A JSON file is composed as a list of the desired options written in their full length. For example, `task.json` can be as follows:
-```{.c}
+
+```
 {
         "deadline": 1,
         "period": 1,
@@ -32,6 +33,7 @@ A JSON file is composed as a list of the desired options written in their full l
         "memory-profiling-time-bucket": 100000
 }
 ```
+
 In that case, it is fully equivalent to `./disparity -d 1 -p 1 -c 3 -m 0 -t 15 -l 3 -b "." -B 100000`. Note that any invalid or unsupported option will lead to `Invalid/unsupported parameter "X" in configuration file!` being outputed (where X is the first parameter at fault found).
 
 The configuration defined in a JSON file can be complemented or partially overridden by explicitly specifying parameters after the configuration file. Assuming the task.json configuration file, typing `./disparity -g task.json -t 5` will enforce 5 runs instead of 15. Parameters precised before the configuration file file will be overridden if they figure in the JSON configuration file. Note that due to how the option parsin is implemented, `./disparity -t 5 -g task.json` will still perform 15 runs.
@@ -40,9 +42,10 @@ The configuration defined in a JSON file can be complemented or partially overri
 
 - `-d`, `--deadline=secs`: The benchmark deadline in seconds. Can be an integer,
   float or in scientific notation. Must be less or equal than the benchmark
-  period.__Required__.
+  period.
 - `-p`, `--period=secs`: The benchmark period, in seconds. Can be an integer,
-  float or in scientific notation.__Required__.
+  float or in scientific notation. `0` if omitted. If period is `0` then the next job will be
+  executed directly after the current job, in a back-to-back fashion.
 
 ### Execution options
 
@@ -60,6 +63,11 @@ The configuration defined in a JSON file can be complemented or partially overri
 
     Without a magnitude modifier specified the value is assumed to be in bytes.
     0 means no memory limit, and it is the default setting.
+- `-H`, `--heap-location=0xdeadbeef` `--heap-location=path/to/file` The location of the heap, requires mem-limit to be set.
+   Make sure to have enough space for both the benchmark and malloc's data structures.
+	 If the option is an hexadecimal value (i.e. starting with `0x`) then `/dev/mem` will be used to
+	 allocate the heap.
+     As an alternative to `/dev/mem` backing, the user can also provide a binary file by specifing its path.
 - `-t`, `--tasks-number=integer>=0` The number of tasks to be executed. 0 means
   until the program receives a `SIGINT`. Default is 0.
 
@@ -81,6 +89,8 @@ The configuration defined in a JSON file can be complemented or partially overri
   To generate valid execution that are not truncated under hard server
   reservation ensure that period < sched-period and deadline < sched-deadline.
 
+ __NOTE:__ `SCHED_DEADLINE` options may have to be disabled or not available, see [here](#sched_deadline_support) for details.
+
 ### Reporting options
 
 - `-l`, `--log-level=log-lvl`: Log level, can be one of the following:
@@ -89,6 +99,7 @@ The configuration defined in a JSON file can be complemented or partially overri
   - `2`: Print benchmark stats to output file in csv format.
   - `3`: Print benchmark stats to `stdout` in csv format.
   - `4`: Print informative messages on `stdout` and debug messages on `stderr`.
+  - `5`: Print also additional debug level messages.
 
   Default is 3.
 
@@ -104,12 +115,12 @@ Have to be explicitly enabled, see [here](#perf_support) for instructions.
 - `-M`, `--memory-profiling-enable`: Enables runtime memory profiling. Specify `1` to enable or `0` otherwise.
 - `-C`, `--memory-profiling-core`: Core affinity of the runtime memory profiling thread. If not specified, it matches the 'core-affinity' parameter.
 
- __Warning__: `memory-profiling-enable`: must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](../2-Building_with_the_framework.markdown).
+ __Warning__: `memory-profiling-enable`: must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](#compilation).
 
 
 - `-B`,`--memory-profiling-time-bucket`: Period between measurements performed by the runtime memory profiler. If not specified, time bucket of 10ms is set.
 
- __Warning__: 'memory-profiling-enable' must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](../2-Building_with_the_framework.markdown).
+ __Warning__: 'memory-profiling-enable' must be asserted for this parameter to take effect. Requires platform-specific compilation parameters described in [Building with the framework](#compilation).
 
 ### Benchmark-specific arguments and options
 
