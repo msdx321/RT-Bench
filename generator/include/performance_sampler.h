@@ -29,17 +29,32 @@ struct sampling_data {
 	struct perf_counters sum; ///< Sum of measurement recorded.
 };
 
-int setup_perf_sampler(unsigned iterations, cpu_set_t core_affinity,
+/** @brief Setup the perf sampler.
+ * @param[in] core_affinity The affinity mask for the sampler thread.
+ * @param[in] time_bucket The period in nanoseconds, after which a new sample must be
+ * taken.
+ * @details
+ * The function will setup the sampler thread and start it, but it will not
+ * activate the sampling.
+ */
+int setup_perf_sampler(cpu_set_t core_affinity,
 		       long unsigned time_bucket);
 
-/// Assumes stop has been performed before
-/// Returns 0 on errors
+/** @brief Teardown the parf sampler
+ * @details Assumes stop has been performed before
+ * @returns 0 on success
+ */
 int teardown_perf_sampler(void);
 
+/// Start the perf sampler
 void start_sampling(void);
 
+/// Pause the perf sampler
 void stop_sampling(void);
 
+/** @brief export all samples to the log file
+ * @param[in] filep The file where to write all samples
+ */
 void log_samples(FILE *filep);
 
 #endif /* PERFORMANCE_SAMPLER */

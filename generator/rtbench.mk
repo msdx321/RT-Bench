@@ -148,7 +148,7 @@ $(info )
 ## Add this recipe such that 'all' recipe in children makefile become the default one
 default: all
 ## Base recipe to build with the whole RT-Bench core!
-rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc
+rtbench: init main periodic_benchmark signal_utils performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc
 
 # staticx target to setup the environment if staticx is enabled and not already on path
 ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
@@ -187,6 +187,9 @@ endif
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
 
+signal_utils: init $(INCLUDE)/signal_utils.h
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/signal_utils.c -o $(OBJECT)/signal_utils.o $(LDFLAGS)
+
 get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
 
@@ -200,7 +203,7 @@ performance_counters: init $(INCLUDE)/performance_counters.h
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_counters.c -o $(OBJECT)/performance_counters.o $(LDFLAGS)
 
 performance_sampler: init $(INCLUDE)/performance_sampler.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampelr.o $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampler.o $(LDFLAGS)
 
 periodic_benchmark: init $(INCLUDE)/periodic_benchmark.h
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
