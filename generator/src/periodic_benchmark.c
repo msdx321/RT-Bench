@@ -403,11 +403,11 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     filep_sampler =
         open_output_file(DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH,
                          exec_opts->output_path, "_perf_profile.csv", "w+");
-    res = setup_perf_sampler(exec_opts->tasks_to_launch,
+    res = setup_perf_sampler(
                              exec_opts->memory_profiling_core_affinity,
                              exec_opts->memory_profiling_time_bucket);
     if (res != 0) {
-      perror("Error during the creation of the performance sampler thread\n");
+      perror("Error during the creation of the performance sampler thread");
       return res;
     }
   }
