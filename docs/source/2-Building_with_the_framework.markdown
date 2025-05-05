@@ -90,7 +90,7 @@ The flake provides two development shells:
 	aarch64-shell.nix` in the repo root, that provides dependencies and
 	`aarch64-unknown-linux-gnu-gcc` cross-compiler.
 
-## Compiling RT-Bench
+## Compiling RT-Bench {#makefile-rules}
 
 Compiling a RT-Bench compliant benchmark (see [benchmark structure](3-Extending_rt-bench.markdown)) with the framework using the provided
 `Makefile` structure is easy and the best way to benefit from all the features
@@ -100,11 +100,11 @@ The `Makefile` provided in [Isolbench](@ref IsolBench) is a good example of how 
 
 Typically, once `generator/rtbench.mk` is included, five different variables are accessible:
 
-- `rtbench`: recipe to initialize and build the RT-Bench core components for the desired target
+- `RTBENCH`: Caontains all dependencies to initialize and build the RT-Bench core components for the desired target. Must be a dependency for every benchmark executable.
 - `CROSS_COMPILE`: user-specified cross compiler variable (i.e. aarch64-linux-gnu-)
 - `CC`: user-specified compiler for the desired target
 - `CFLAGS`: compilation flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
-- `BASE_O`: set of object files for the RT-Bench core components
+- `BASE_O`: set of object files for the RT-Bench core components to be linked with the benchmark
 - `LDFLAGS`: linker flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
 - `STATICX_REQ`: Requirements to have [StaticX](#staticx) on path, undefined	when the feature is disabled.
 - `STATICX_CMD`: Command line for packing the executable with [StaticX](#staticx) replaced by a printf when the feature is disabled.
@@ -112,7 +112,7 @@ Typically, once `generator/rtbench.mk` is included, five different variables are
 Using these variables and recipes, we recommend to write recipes for compiling your benchmark with the following template:
 
 ```{.mk}
-<benchmark>: rtbench
+<benchmark>: $(RTBENCH)
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) <benchmark>.c $(BASE_O) -o <benchmark> $(LDFLAGS)
 	$(STATICX_REQ)
 	$(STATICX_CMD) <benchmark> <benchmark>.sx
@@ -125,18 +125,19 @@ features. These features are not part of the default set of features as they
 depend on the benchmark nature itself or on the platform on which the benchmarks
 will be deployed.
 
-### Using the Makefile scaffolding to toggle optional features
 
 For each of the below features, there is a matching variable with can
 force-toggle the feature on or off, (consider as an example the JSON parser
 feature, it can be manually controlled by setting `FEAT_JSON=y` or
 `FEAT_JSON=n`). More details on these variables are in the corresponding feature section.
 
-Additionally, these variables can be stored in a `options.mk` makefile in the root
-of the repository to avoid having to input them manually each time. An example
-of the `options.mk` is provided below:
+### Using the Makefile scaffolding to toggle optional features
 
-```
+These variables should be stored in a `options.mk` makefile in the root of the
+repository to have make properly detect changes and automatically trigger a full
+recompilation when necessary. An example of the `options.mk` is provided below:
+
+```{.mk}
 #Path: rt-bench/options.mk
 #This makefile can be used to explicitly toggle RT-bench optional features
 # controlled by makefile variables. Refer to the documentation for more details.
@@ -146,6 +147,10 @@ FEAT_SCHED_DEADLINE=n
 #Example: enable json parser support
 FEAT_JSON=y
 ```
+
+Finally, options.mk is a regular makefile, which will be included in
+`generator/rtbench.mk` so it is possible to costomise all variable used by
+`generator/rtbench.mk` if necessary.
 
 ### Extended Reporting (Benchmark Specific Measurement Reporting)
 

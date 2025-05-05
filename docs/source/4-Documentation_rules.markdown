@@ -17,7 +17,7 @@ The documentation is available in pdf and html, and it is generated in the `docs
 - [Doxygen Awesome](https://github.com/jothepro/doxygen-awesome-css) (will be set up automatically)
 - A working internet connection
 
-For [Nix](https://nixos.org/) users a flake and a [direnv](https://direnv.net/) environment are available to make sure that all the dependencies are satisfied.
+For [Nix](https://nixos.org/) users a nix shell and a [direnv](https://direnv.net/) environment are available to make sure that all the dependencies are satisfied.
 
 ## Build targets
 
@@ -60,7 +60,7 @@ You can freely link documents of any type in the documentation, place them in th
 In general urls should not be masked and links to documents should contain the document filename or title, to make the documentation readable even if printed.
 
 In each authored file make sure to add the following snippet:
-```
+```{.c}
 @author Author
 @copyright [year file created] - [last year file modified], [file author] <[author email]> and the [project name] contributors
 SPDX-License-Identifier: [SPDX license expression]

@@ -5,7 +5,7 @@ all:
 docs: setup-docs
 	make -C ${CURDIR}/docs
 
-clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python
+clean: clean-vision clean-isolbench clean-docs clean-tacle clean-image-filters clean-utils clean-python clean-generator
 
 setup: setup-docs setup-tacle setup-image-filters
 ifeq ("$(wildcard generator/src/dlmalloc/LICENSE)", "")
@@ -86,6 +86,10 @@ clean-utils:
 
 clean-python:
 	@rm -rf $(PROJ_ROOT)/.venv
+
+clean-generator:
+	@rm -rf generator/object
+
 # benchmark suite groups
 
 # WCET group

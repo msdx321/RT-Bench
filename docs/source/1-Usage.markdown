@@ -39,8 +39,26 @@ Some of options supported by the top-level Makefile are (all options described i
 
 The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled, and (4) will provide extended report:
 
+```{.sh}
+FEAT_JSON=y CROSS-COMPILE=aarch64-linux-gnu- CC=gcc-11  FEAT_PERF=y CORE=CORTEX_A53 FEAT_EXTENDED_REPORT=y make
 ```
-FEAT_JSON=1 CC=aarch64-linux-gnu-gcc-11  FEAT_PERF=1 CORE=CORTEX_A53 FEAT_EXTENDED_REPORT=1 make
+
+However, we discourage using make variables in the commandline since this might
+prevent make to correctly decide when all the targets are up to date.
+
+We recommend placing the variables in on `options.mk` makefile in the repository
+root, which will automatically get sourced and it will allow make to properly
+detected that variables are changed and trigger a full recompilation.
+
+The snippet below is an equivalent example to the previous commandline:
+
+```{.mk}
+FEAT_JSON=y
+CROSS-COMPILE=aarch64-linux-gnu-
+CC=gcc-11
+FEAT_PERF=y
+CORE=CORTEX_A53
+FEAT_EXTENDED_REPORT=y
 ```
 
 #### General targets
@@ -75,6 +93,7 @@ Compilation targets are meant to compile all the benchmarks in a [benchmark set]
 
 Compilation targets are meant to remove most of the non-source code files.
 
+- `clean-generator`: Cleans the [ RT-Bench generator](@ref #generator) module.
 - `clean-isolbench`: Cleans the [IsolBench](@ref #IsolBench) suite.
 - `clean-vision`: Cleans the [SD-VBS](@ref #SD-VBS) suite.
 - `clean-tacle`: Cleans the [TACLeBench](@ref #rt-tacle-bench) suite.

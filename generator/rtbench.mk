@@ -11,17 +11,14 @@ STATICX_PATH:=$(shell command -v staticx)
 CC ?= gcc
 
 # Paths
-CUR_DIR=$(strip $(dir $(abspath $(filter %rtbench.mk,$(MAKEFILE_LIST)))))
-PROJ_ROOT=$(CUR_DIR)/..
-OBJECT=$(CUR_DIR)/object/$(notdir $(CC))
-INCLUDE=$(CUR_DIR)/include
-SOURCE=$(CUR_DIR)/src
-
-# Lists of all object files
-BASE_O=$(OBJECT)/*.o
+RTBENCH_GENERATOR_DIR=$(strip $(dir $(abspath $(filter %rtbench.mk,$(MAKEFILE_LIST)))))
+PROJ_ROOT=$(realpath $(RTBENCH_GENERATOR_DIR)/..)
+RTBENCH_OBJ_FLDR=$(RTBENCH_GENERATOR_DIR)/object/$(notdir $(CROSS_COMPILE)$(CC))
+RTBENCH_H_FLDR=$(RTBENCH_GENERATOR_DIR)/include
+RTBENCH_SRC_FLDR=$(RTBENCH_GENERATOR_DIR)/src
 
 # Basic compilation flags for rt-bench
-override CFLAGS+=-O2 -Wall -g -I$(INCLUDE) -DGCC
+override CFLAGS+=-O2 -Wall -g -I$(RTBENCH_H_FLDR) -DGCC
 
 # Add linker's flags
 override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
@@ -29,7 +26,7 @@ override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wra
 #optional features
 
 # #try to include a local config file with all the optional feature variables
-sinclude $(CUR_DIR)../options.mk
+sinclude $(RTBENCH_GENERATOR_DIR)../options.mk
 
 #message to the user so that he knows what features are enabled
 $(info )
@@ -104,9 +101,12 @@ endif
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_EXTENDED_REPORT)),$(FEAT_ENABLED))
  $(info Extended report enabled)
  override CFLAGS+=-DFEAT_EXTENDED_REPORT_SUPPORT=$(MACRO_FEAT_ENABLED)
+ #override object folder so benchmarks with extended report
+ #and benchmarks without can both benefit from make features
+ RTBENCH_OBJ_FLDR=$(RTBENCH_GENERATOR_DIR)/object/$(notdir $(CC))/extended-report
 endif
 
-# Check if extended report is desired
+# Check if log file is desired
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_BMARK_LOG_FILE)),$(FEAT_ENABLED))
  $(info Benchmark log file enabled)
  override CFLAGS+=-DFEAT_BMARK_LOG_FILE_SUPPORT=$(MACRO_FEAT_ENABLED)
@@ -140,15 +140,23 @@ endif
 
 CXXFLAGS:=$(CFLAGS)
 
+# Lists of all source files
+RTBENCH_SRC=$(shell find $(RTBENCH_SRC_FLDR) -name '*.c')
+# Lists of all object files
+RTBENCH_O=$(addprefix $(RTBENCH_OBJ_FLDR)/,$(notdir $(RTBENCH_SRC:.c=.o)))
+# Lists of all header files
+RTBENCH_H=$(shell find $(RTBENCH_H_FLDR) -name '*.h')
+
+# RT-Bench core dependencies
+RTBENCH=$(PROJ_ROOT)/options.mk $(RTBENCH_OBJ_FLDR) $(RTBENCH_O) $(RTBENCH_H)
+
 $(info )
 $(info )
 
 # RT-Bench core recipes
-.PHONY: default rtbench init dlmalloc staticx-check create-obj-folder
+.PHONY: default staticx-check
 ## Add this recipe such that 'all' recipe in children makefile become the default one
 default: all
-## Base recipe to build with the whole RT-Bench core!
-rtbench: init main periodic_benchmark performance_sampler performance_counters memory_watcher logging get_cpu_timestamp dlmalloc
 
 # staticx target to setup the environment if staticx is enabled and not already on path
 ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
@@ -156,7 +164,7 @@ ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
 ifeq ($(STATICX_PATH),)
 $(info Staticx not found in path, installing it in a python virtualenv)
 $(warning Make sure that ldd, readelf, objcopy and patchelf are installed in path)
-# activate python venv if statix is not in path
+# activate python venv if staticx is not in path
 STATICX_REQ:=@source $(PROJ_ROOT)/.venv/bin/activate
 staticx-check:
 	@python -m venv $(PROJ_ROOT)/.venv
@@ -169,42 +177,27 @@ else
 staticx-check:
 endif
 
-init: create-obj-folder dlmalloc staticx-check
+$(PROJ_ROOT)/options.mk:
+		@touch $@
 
-create-obj-folder:
-	@mkdir -p $(OBJECT)
+$(RTBENCH_OBJ_FLDR): %:
+		@mkdir -p $@
 
-dlmalloc: create-obj-folder
-ifeq ("$(wildcard $(SOURCE)/dlmalloc/LICENSE)", "")
+$(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c:
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
-	@git submodule update --init --recursive $(SOURCE)/dlmalloc
-endif
+	@git submodule update --init --recursive $(RTBENCH_SRC_FLDR)/dlmalloc
 	@echo "setting up dlmalloc"
-	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/dlmalloc/source/dlmalloc.c -o $(OBJECT)/dlmalloc.o $(LDFLAGS)
+	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 
-get_cpu_timestamp: init $(INCLUDE)/get_cpu_timestamp.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/get_cpu_timestamp.c -o $(OBJECT)/get_cpu_timestamp.o $(LDFLAGS)
+$(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-logging: init $(INCLUDE)/logging.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/logging.c -o $(OBJECT)/logging.o $(LDFLAGS)
+$(RTBENCH_OBJ_FLDR)/main.o: $(RTBENCH_SRC_FLDR)/main.c  $(RTBENCH_H) $(PROJ_ROOT)/options.mk
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-memory_watcher: init $(INCLUDE)/memory_watcher.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/memory_watcher.c -o $(OBJECT)/memory_watcher.o $(LDFLAGS)
-
-performance_counters: init $(INCLUDE)/performance_counters.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_counters.c -o $(OBJECT)/performance_counters.o $(LDFLAGS)
-
-performance_sampler: init $(INCLUDE)/performance_sampler.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/performance_sampler.c -o $(OBJECT)/performance_sampelr.o $(LDFLAGS)
-
-periodic_benchmark: init $(INCLUDE)/periodic_benchmark.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/periodic_benchmark.c -o $(OBJECT)/periodic_benchmark.o $(LDFLAGS)
-
-main: init $(SOURCE)/main.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $(SOURCE)/main.c -o $(OBJECT)/main.o $(LDFLAGS)
-
+$(RTBENCH_OBJ_FLDR)/%.o: $(RTBENCH_SRC_FLDR)/%.c $(RTBENCH_H) $(PROJ_ROOT)/options.mk
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)

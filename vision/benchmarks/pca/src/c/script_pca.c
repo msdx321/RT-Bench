@@ -1,5 +1,5 @@
 /**
- * @file pca.c
+ * @file script_pca.c
  * @ingroup PCA
  * @brief Functions used to run the pca benchmark periodically.
  * @details

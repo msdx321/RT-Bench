@@ -4,7 +4,11 @@ Extending RT-Bench
 [TOC]
 
 This page will guide the user through the procedure to add a new benchmark or benchmark set.
-Another guide that the used should read is the [Documentation guide](#docrules).
+The user should read also the [Documentation guide](#docrules) and [Compilation guide](#compilation).
+
+A [template repository](https://gitlab.com/rt-bench/templates/benchmark-template) that
+follows this guide, the [documentation guide](#docrules) and the [compilation
+guide](#compilation) is also available for quickstart.
 
 ## Add a new benchmark set {#new-set}
 
@@ -23,15 +27,16 @@ To add a new benchmark set and integrate it with the other sets the following st
      `clean-new_set` has also to be included as dependency of the `clean` target.
      
    The newly created target have to be added to the grouped targets, creating a new group if necessary
-3. If the benchmark set uses a Makefile, the Makefile in `generator/Makefile` has to be included as early as possible, since it will define the necessary compilation and linking flags according to the features enabled.
+3. If the benchmark set uses a Makefile, the Makefile in `generator/rtbench.mk` has to be included as early as possible, since it will define the necessary compilation and linking flags according to the features enabled.
 
-    The `generator/Makefile` will define the `CFLAGS` and `LDFLAGS` variables that have to be used in the compilation command line. 
-    Both `CFLAGS` and `LDFLAGS` can be extended, by using the `override` and `+=` operator.
+    The `generator/rtbench.mk` will define the `CC`, `CROSS-COMPILE`, `CFLAGS` and `LDFLAGS` variables that have to be used in the compilation command line.
+    Both `CFLAGS` and `LDFLAGS` can be extended, by using the `override` and `+=` operators.
+		Additionally, `generator/rtbench.mk` define the set of dependencies to build RT-Bench in `RTBENCH` and the set of object file to link to he benchmark in `BASE_O`.
 
     For [StaticX](#staticx) compilation to be supported, each Makefile rule has
     to include two commands after the executable is generated:
 
-		```
+		```{.mk}
 		$(STATICX_REQ)
 		$(STATICX_CMD) [executable name] [executable name].sx
 		```
@@ -41,7 +46,9 @@ To add a new benchmark set and integrate it with the other sets the following st
     executable is not on path. `$(STATICX_CMD)` contains the StaticX
     commandline, which gets substituted by a printf if the feature is disabled
 
-    See `IsolBench/Makefile` for an example.
+    Example makefile rules are in [Building with the framework](#makefile-rules).
+
+    See `IsolBench/Makefile` for an example of how to create a complete makefile.
 
 4. The benchmark set is to be described as a module in a .dox or .md file.
 
@@ -50,7 +57,7 @@ To add a new benchmark set and integrate it with the other sets the following st
     
    To make sure that Doxygen will place the instruction in the correct location the file has to begin with the following snippet:
    
-   ```
+   ```{.c}
    @defgroup new_set New benchmark set name.
    @ingroup benchmarks
    @brief Brief description of the benchmark set.
@@ -63,7 +70,7 @@ To add a new benchmark set and integrate it with the other sets the following st
 **NOTE**: Doxygen will raise an error if `@defgroup` is used more than once with the same parameters!
    
    In case a .dox file is used, all the documentation has to be included in a Doxygen C-style comment:
-   ```
+   ```{.c}
    /**
     * [Snippet contents and documentation here]
     */
@@ -92,7 +99,7 @@ Refer to the `setup-tacle`, `compile-tacle`, `clean-tacle` targets in the top-le
 **NOTE**: For markdown files, the extension has to be `.md`, so that they will not be included in doxygen documentation as pages, but can be convert with the aforementioned script.
 This example will exclude all file in the RT-Bench documentation config folder and in the TACLeBench `parallel` subfolder from being documented:
 
-```
+```{.mk}
 EXCLUDE = ../config \
           ../../rt-tacle-bench/bench/parallel
 ```
@@ -113,7 +120,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 1. It is recommended to create a folder with the benchmark name that will contain all the benchmark-exclusive files (example: `new_set/new_benchmark`), but there are no defined rules on how the benchmark set folder must be organized, it is sufficient to explain how to maintain, compile and execute the benchmarks in the set documentation.
 2. It is recommended to create a set that will group all the files that compose the benchmark.
    The set is defined as follows and this snippet can be located in standalone .dox file or in any of the benchmark files:
-   ```
+   ```{.c}
    /**
     * @defgroup new_benchmark
     * @ingroup new_set
@@ -132,7 +139,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 **NOTE**: Doxygen will raise an error if `@defgroup` is used more than once with the same parameters!
 3. Each source file and header must have a documentation header with a reference to the benchmark module, a brief description of the file contents and optionally a detailed description of the file contents (example: `new_set/new_benchmark/benchmark_file.c`,`new_set/new_benchmark/benchmark_header.h`).
     The example for `new_set/new_benchmark/benchmark_file.c`, `new_set/new_benchmark/benchmark_header.h` is the same:
-   ```
+   ```{.c}
    /**
     * @file benchmark_file.c
     * @ingroup new_benchmark
@@ -148,17 +155,17 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 3. Files have to be documented according to the [Documentation Rules](#docrules). An exception can be made for symbols and function that were not written as a result of the adaptation.
 4. The benchmark files _must_ export three functions:
 	-
-    ```
+    ```{.c}
     int benchmark_init(int parameters_num, void **parameters)
     ```
 	Will initialize the benchmark using the supplied parameters. This initialization is run only once so it needs to prepare the benchmark for periodic execution (eg. reading data from file, allocation memory, preparing data structures,...) Data written by this function must be treated a read-only, while memory allocated can be freely used, but should be reset after execution.
 	-
-    ```
+    ```{.c}
     void benchmark_execution(int parameters_num, void **parameters)
     ```
 	Will execute the benchmark as if it was launched for the first time. It must treat data from the `benchmark_init` function as read-only and reset any used memory location to its initial value after the benchmark has completed, to ensure that periodic executions will have always the same environment and hence the same result.
 	-
-    ```
+    ```{.c}
     void benchmark_teardown(int parameters_num, void **parameters)
     ```
 	Will revert all the operations done by `benchmark_init` and free allocated memory, to ensure a clean termination of the program. This function is executed only when the program is terminating.
@@ -168,7 +175,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 
 5. The benchmark files must import the following libraries (provided by the [RT-Bench Generator](@ref #generator)):
   - The logging library provieded by RT-Bench.
-  ```
+  ```{.c}
   #include "logging.h"
   ```
   - The header that defines the exported functions along with other macros and dependencies.
@@ -178,12 +185,12 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 
 6. _Optionally_, the benchmark can export functions for the extending the report interface. For this, only two functions are necessary:
 	-
-    ```
+    ```{.c}
     const char* benchmark_log_header()
     ```
   	Which returns a constant string to extend the csv header (e.g., ",bandwidth(MB/S)" for isolbench/bandwidth)
 	-
-    ```
+    ```{.c}
     float benchmark_log_data()
     ```
 	  Which returns the benchmark-specific measurement.
@@ -197,7 +204,7 @@ Refer to the [disparity](@ref #disparity) benchmark documentation and source cod
 
 It is required to add the utility in the utils set, by creating a subset that will describe the utility as in the example below:
 
-```
+```{.c}
 /**
 * @defgroup new_script New script
 * @ingroup utils
@@ -230,7 +237,7 @@ To add a new module in RT-Bench the following steps are needed:
 2. In `docs/source/modules` a new folder with the name/acronym of the module must be created. This folder will contain the documentation for the modules that compose the benchmark set (example: `docs/source/modules/new_module`).
 3. The benchmark set is to be described as a module in a .dox file under the modules folder (`docs/source/modules/new_set/new_module.dox`).
    Example:
-   ```
+   ```{.c}
    /**
     * @defgroup new_module New Module
     * @ingroup parent_module_if_present
@@ -253,7 +260,7 @@ There are no defined rules on how the module folder must be organized, it is suf
 
 2. In case of a submodule, create a .dox file with the submodule name in the module documentation folder which will describe what the submodule does (example: `docs/source/new_module/new_submodule.dox`). For instance:
 
-   ```
+   ```{.c}
    /**
     * @defgroup new_submodule
     * @ingroup new_module
@@ -268,7 +275,7 @@ There are no defined rules on how the module folder must be organized, it is suf
 
 3. Each source file and header must have a documentation header with a reference to the benchmark module, a brief description of the file contents and optionally a detailed description of the file contents (example: `new_set/file.c`,`new_set/header.h`).
     The example for `new_set/file.c`, `new_set/header.h` is the same:
-   ```
+   ```{.c}
    /**
     * @file file.c
     * @ingroup new_module

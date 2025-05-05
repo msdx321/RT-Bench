@@ -2,15 +2,15 @@
 # Original Author: Sravanthi Kota Venkata
 #################################
 RTBENCH_PATH=${TOP_DIR}/..
-include ${RTBENCH_PATH}/generator/rtbench.mk
 
 override CFLAGS += -D$(INPUT)
 
-ifdef CHECK_OUTPUT #TODO: akin to `EXTENDED_REPORT`?
-override CFLAGS+= -DCHECK
+ifdef CHECK_OUTPUT #TODO: Maybe include this in the extended report
+override CFLAGS+= -DCHECK -DGENERATE_OUTPUT
 endif
 
-BASE_DIR := $(TOP_DIR)/../generator/src
+include ${RTBENCH_PATH}/generator/rtbench.mk
+
 COMMON_DIR := $(TOP_DIR)/common/c
 TIMING_DIR := $(TOP_DIR)/cycles/$(BMARK)
 BMARK_DIR := $(TOP_DIR)/benchmarks/$(BMARK)
@@ -27,69 +27,99 @@ C_DIR=$(BMARK_DIR)/src/c
 DATA_DIR=$(BMARK_DIR)/data/$(INPUT)
 C_RESULT=$(BMARK_DIR)/result
 
-# Source files for C and Common folders
-
-BASE_SRC := $(wildcard $(BASE_DIR)/*.c) $(wildcard $(BASE_DIR)/dlmalloc/source/*.c)
-C_SRC := $(wildcard $(C_DIR)/*.c)
+# Source files for C and Common folders (excluding the script_bmark.c files)
+C_SRC := $(filter-out %script_$(BMARK).c,$(wildcard $(C_DIR)/*.c))
 COMMON_SRC := $(wildcard $(COMMON_DIR)/*.c)
+
+#object folders
+COMMON_OBJECT=$(TOP_DIR)/common/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))
+COMMON_OBJECT_G=$(TOP_DIR)/common/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))/debug
+COMMON_OBJECT_PG=$(TOP_DIR)/common/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))/profile
+C_OBJECT=$(BMARK_DIR)/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))
+C_OBJECT_G=$(BMARK_DIR)/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))/debug
+C_OBJECT_PG=$(BMARK_DIR)/object/$(notdir $(CROSS_COMPILE))$(notdir $(CC))/profile
+
+# object files
+COMMON_O=$(addprefix $(COMMON_OBJECT)/,$(notdir $(COMMON_SRC:.c=.o)))
+COMMON_OG=$(addprefix $(COMMON_OBJECT_G)/,$(notdir $(COMMON_SRC:.c=.o)))
+COMMON_OPG=$(addprefix $(COMMON_OBJECT_PG)/,$(notdir $(COMMON_SRC:.c=.o)))
+C_O=$(addprefix $(C_OBJECT)/,$(notdir $(C_SRC:.c=.o)))
+C_OG=$(addprefix $(C_OBJECT_G)/,$(notdir $(C_SRC:.c=.o)))
+C_OPG=$(addprefix $(C_OBJECT_PG)/,$(notdir $(C_SRC:.c=.o)))
 
 # RULES
 EXE =
-INCLUDES = -I$(COMMON_DIR) -I$(C_DIR) -I$(BASE_DIR)
+INCLUDES = -I$(COMMON_DIR) -I$(C_DIR)
 COMPILE_C = $(CROSS_COMPILE)$(CC) $(CFLAGS) -O2 $(INCLUDES)
 C_LIBS = $(LDFLAGS)
-#COMPILE_C = $(CROSS_COMPILE)$(CC) $(CFLAGS) -DGENERATE_OUTPUT -O2 $(INCLUDES)
 COMPILE_G = $(CROSS_COMPILE)$(CC) $(CFLAGS) -g $(INCLUDES)
 COMPILE_PG = $(COMPILE_G) -pg
 
+$(COMMON_OBJECT)/%.o: $(COMMON_DIR)/%.c
+	@mkdir -p $(COMMON_OBJECT)
+	@$(COMPILE_C) -c  $< -o $@ $(C_LIBS)
+
+$(COMMON_OBJECT_G)/%.o: $(COMMON_DIR)/%.c
+	@mkdir -p $(COMMON_OBJECT_G)
+	@$(COMPILE_G) -c $< -o $@ $(C_LIBS)
+
+$(COMMON_OBJECT_PG)/%.o: $(COMMON_DIR)/%.c
+	@mkdir -p $(COMMON_OBJECT_PG)
+	@$(COMPILE_PG) -c $< -o $@ $(C_LIBS)
+
+$(C_OBJECT)/%.o: $(C_DIR)/%.c
+	@mkdir -p $(C_OBJECT)
+	@$(COMPILE_C) -c $< -o $@ $(C_LIBS)
+
+$(C_OBJECT_G)/%.o: $(C_DIR)/%.c
+	@mkdir -p $(C_OBJECT_G)
+	@$(COMPILE_G) -c $< -o $@ $(C_LIBS)
+
+$(C_OBJECT_PG)/%.o: $(C_DIR)/%.c
+	@mkdir -p $(C_OBJECT_PG)
+	@$(COMPILE_PG) -c $< -o $@ $(C_LIBS)
 
 c-run: compile
 	@echo -e "Data set\t\t- $(INPUT)"
 	@mkdir -p $(TIMING_DIR)
 	@./$(BMARK)$(EXE) $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT) | tee -i $(TIMING_DIR)/C_$(INPUT).txt
 
-debug:
-	@echo Running Debug C Version of the benchmark
-	@$(COMPILE_G) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+debug: $(RTBENCH) $(COMMON_OG) $(C_OG)
+	@echo Compiling Debug C Version of the benchmark
+	@$(COMPILE_G) $(RTBENCH_O) $(COMMON_OG) $(C_OG) $(C_DIR)/script_$(BMARK).c -o $(BMARK)$(EXE)-debug $(C_LIBS)
+	@$(COMPILE_G) -fsanitize=address $(RTBENCH_O) $(COMMON_OG) $(C_OG) $(C_DIR)/script_$(BMARK).c -o $(BMARK)$(EXE)-asan $(C_LIBS)
 	$(STATICX_REQ)
-	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
+	$(STATICX_CMD) $(BMARK)$(EXE)-debug $(BMARK)$(EXE)-debug.sx
+	$(STATICX_CMD) $(BMARK)$(EXE)-asan $(BMARK)$(EXE)-asan.sx
 
 debug-valgrind: debug
-	@valgrind --leak-check=full -s ./$(BMARK)$(EXE) $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
+	@valgrind --leak-check=full -s ./$(BMARK)$(EXE)-debug $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
 
 debug-gdb: debug
-	@gdb --args ./$(BMARK)$(EXE) $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
+	@gdb --args ./$(BMARK)$(EXE)-debug $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
 
-debug-asan:
-	@echo Running Debug C Version of the benchmark
-	@$(COMPILE_G) -fsanitize=address $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(CLIBS)
-	$(STATICX_REQ)
-	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
-	@./$(BMARK)$(EXE) $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT)
-
+debug-asan: debug
+	@./$(BMARK)$(EXE)-asan $(BMARK_OPTIONS) -o $(C_RESULT)  -b $(DATA_DIR)
 
 profile: compile-prof
 	@echo -e "Data set\t\t- $(INPUT)"
-	@./$(BMARK)$(EXE) $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT)
-	@gprof $(BMARK)$(EXE)
+	@./$(BMARK)$(EXE)-profile $(BMARK_OPTIONS) -b $(DATA_DIR) -o $(C_RESULT)
+	@gprof $(BMARK)$(EXE)-profile
 
-
-compile: rtbench $(C_SRC)
-	@echo
+compile: $(RTBENCH) $(C_O) $(COMMON_O)
 	@echo -e "Benchmark\t\t- $(BMARK)"
-	@echo -e "${COMPILE_C}"
-	@$(COMPILE_C) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
-	echo "$(STATICX_REQ)"
-	echo "$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx"
-
-compile-prof: $(C_SRC)
-	@echo
-	@echo -e "Benchmark\t\t- $(BMARK)"
-	@$(COMPILE_PG) $(BASE_SRC) $(COMMON_SRC) $(C_SRC) -o $(BMARK)$(EXE) $(C_LIBS)
+	@$(COMPILE_C) $(RTBENCH_O) $(C_O) $(COMMON_O) $(C_DIR)/script_$(BMARK).c  -o $(BMARK)$(EXE) $(C_LIBS)
 	$(STATICX_REQ)
 	$(STATICX_CMD) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
+
+compile-prof: $(RTBENCH) $(C_OPG) $(COMMON_OPG)
+	@echo
+	@echo -e "Benchmark\t\t- $(BMARK)"
+	@$(COMPILE_PG) $(RTBENCH_O) $(COMMON_PG) $(C_PG) $(C_DIR)/script_$(BMARK).c -o $(BMARK)$(EXE)-profile $(C_LIBS)
+	$(STATICX_REQ)
+	$(STATICX_CMD) $(BMARK)$(EXE)-profile $(BMARK)$(EXE)-profile.sx
 
 all: c-run
 
 clean:
-	@-rm -f $(BMARK) $(BMARK)$(EXE) $(BMARK)$(EXE).sx
+	@-rm -f $(BMARK) $(BMARK)$(EXE) $(BMARK)$(EXE)-debug $(BMARK)$(EXE)-profile $(BMARK)$(EXE)-asan $(BMARK)$(EXE).sx $(COMMON_O) $(COMMON_OG) $(COMMON_OPG) $(C_O) $(C_OG) $(C_OPG)

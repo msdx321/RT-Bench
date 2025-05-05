@@ -1,22 +1,18 @@
 #features enabled by default
-FEAT_BMARK_LOG_FILE ?= 1
-FEAT_EXTENDED_REPORT ?= 1
+FEAT_BMARK_LOG_FILE ?= y
+FEAT_EXTENDED_REPORT ?= y
 
-include ../generator/rtbench.mk
+RTBENCH_PATH=$(realpath ../)
+include $(RTBENCH_PATH)/generator/rtbench.mk
 
 PGMS=bandwidth latency
 
 all: $(PGMS)
 
-latency: rtbench
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) latency.c $(BASE_O) -o latency $(LDFLAGS)
+$(PGMS): %: %.c $(RTBENCH)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< $(RTBENCH_O) -o $@ $(LDFLAGS)
 	$(STATICX_REQ)
-	$(STATICX_CMD) latency latency.sx
-
-bandwidth: rtbench
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) bandwidth.c $(BASE_O) -o bandwidth $(LDFLAGS)
-	$(STATICX_REQ)
-	$(STATICX_CMD) bandwidth bandwidth.sx
+	$(STATICX_CMD) $@ $@.sx
 
 clean:
-	@rm -f *.o *.sx $(PGMS) $(BASE_O)
+	@rm -f *.o *.sx $(PGMS) $(RTBENCH_O)
