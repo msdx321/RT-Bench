@@ -10,12 +10,16 @@
 #define _GNU_SOURCE
 #endif
 #include "performance_sampler.h"
+#include "logging.h"
 #include "performance_counters.h"
-#include <semaphore.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <time.h>
+#include "signal_utils.h"
+#include <errno.h>
 #include <limits.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 #define NANOSECONDS (1UL)
 #define MICROSECONDS (1000 * NANOSECONDS)
@@ -90,7 +94,8 @@ sampling_list_add(struct sampler_list_item *tail, unsigned int sample_count) {
   struct sampler_list_item *new =
       __real_malloc(sizeof(struct sampler_list_item) +
                     (buffer_len * sizeof(struct sampling_data)));
-  elogf(LOG_LEVEL_DEBUG, "new VA: %p size of sampler_list_item 0x%lx\n", new,sizeof(struct sampler_list_item));
+  elogf(LOG_LEVEL_DEBUG, "new VA: %p size of sampler_list_item 0x%lx\n", new,
+        sizeof(struct sampler_list_item));
   if (new != NULL) {
     new->next = NULL;
     new->data_len = buffer_len;
@@ -114,7 +119,7 @@ sampling_list_add(struct sampler_list_item *tail, unsigned int sample_count) {
  */
 static void *sampling(void *dummy) {
   int sampling_counter = 0;
-	int sig;
+  int sig;
   while (sampling_alive) {
     if (sampling_active) {
       if (first_sample_taken == 0) {
@@ -145,19 +150,17 @@ static void *sampling(void *dummy) {
       sampling_data_current = sampling_list_add(sampling_data_current, 0);
       sampling_counter = 0;
     }
-		sigwait(&thread_sigwait_set,&sig);
+    sigwait(&thread_sigwait_set, &sig);
   }
   pthread_exit(NULL);
 }
 
-int setup_perf_sampler(cpu_set_t core_affinity,
-                       long unsigned time_bucket) {
+int setup_perf_sampler(cpu_set_t core_affinity, long unsigned time_bucket) {
   pthread_attr_t attr;
   struct sched_param params;
   sigset_t blocked_set;
   // setup sampling struct
-  sampling_list_head =
-      sampling_list_add(NULL, 5 * SECONDS / time_bucket);
+  sampling_list_head = sampling_list_add(NULL, 5 * SECONDS / time_bucket);
   sampling_data_current = sampling_list_head;
   if (sampling_list_head == NULL) {
     return -EXIT_FAILURE;
@@ -195,7 +198,7 @@ int setup_perf_sampler(cpu_set_t core_affinity,
   }
   elogf(LOG_LEVEL_DEBUG, "Setting up signal mask for sampler thread\n");
   // add SIGNAL_PERF_SAMPLE, to the set the thread will wait on
-  res=sigemptyset(&thread_sigwait_set);
+  res = sigemptyset(&thread_sigwait_set);
   if (res < 0) {
     return res;
   }
@@ -205,7 +208,7 @@ int setup_perf_sampler(cpu_set_t core_affinity,
   }
   // block SIGNAL_PERF_SAMPLE, since the dedicated thread will handle it
   elogf(LOG_LEVEL_DEBUG, "Blocking thread signal for main process\n");
-  res=sigemptyset(&blocked_set);
+  res = sigemptyset(&blocked_set);
   if (res < 0) {
     return res;
   }
@@ -218,8 +221,8 @@ int setup_perf_sampler(cpu_set_t core_affinity,
     return res;
   }
   elogf(LOG_LEVEL_DEBUG, "Creating timer for sampling thread\n");
-	// create the timer that will periodically generate SIGNAL_PERF_SAMPLE
-	res=setup_timer(&perf_timer, SIGNAL_PERF_SAMPLE, 0, time_bucket);
+  // create the timer that will periodically generate SIGNAL_PERF_SAMPLE
+  res = setup_timer(&perf_timer, SIGNAL_PERF_SAMPLE, 0, time_bucket);
   if (res < 0) {
     return res;
   }
@@ -227,35 +230,36 @@ int setup_perf_sampler(cpu_set_t core_affinity,
   elogf(LOG_LEVEL_DEBUG, "Spawning sampler thread\n");
   // Start thread
   res = pthread_create(&sampler_thread, &attr, sampling, NULL);
-  if(res!=0){
-    errno=res;
+  if (res != 0) {
+    errno = res;
   }
   return res;
 }
 
 int teardown_perf_sampler(void) {
-	//user ret and res to make sure that if one of timer_delete / pthread_join fails we report the failure
-  int res,ret=0;
+  // user ret and res to make sure that if one of timer_delete / pthread_join
+  // fails we report the failure
+  int res, ret = 0;
   struct sampler_list_item *current = sampling_list_head, *next = NULL;
   if (sampling_alive == 1) {
-  res=timer_delete(perf_timer);
-  ret = res;
+    res = timer_delete(perf_timer);
+    ret = res;
     // send a last signal, so thread can terminate
     pthread_kill(sampler_thread, SIGNAL_PERF_SAMPLE);
   }
   sampling_alive = 0;
   res = pthread_join(sampler_thread, NULL);
-	// invalid thread id will not generate an error
+  // invalid thread id will not generate an error
   if (res < 0 && errno != ESRCH) {
-		ret=res;
+    ret = res;
   }
-  elogf(LOG_LEVEL_DEBUG,"Joined with sampler thread\n");
+  elogf(LOG_LEVEL_DEBUG, "Joined with sampler thread\n");
   while (current != NULL) {
     next = current->next;
     free(current);
     current = next;
   }
-  elogf(LOG_LEVEL_DEBUG,"Freed samples linked list\n");
+  elogf(LOG_LEVEL_DEBUG, "Freed samples linked list\n");
   return ret;
 }
 
@@ -277,7 +281,7 @@ void log_samples(FILE *filep) {
   while (current != NULL) {
     // we want to navigate all the buffer but avoiding samples ith 0 values
     // (which imply the bufer has still free space)
-    for (int j = 0; j < current->data_len && current->data[j].samples > 0 ;
+    for (int j = 0; j < current->data_len && current->data[j].samples > 0;
          j++) {
       fprintf(
           filep, "%lu, %lu, %lu, %lu, %lu, %lu\n", current->data[j].samples,
