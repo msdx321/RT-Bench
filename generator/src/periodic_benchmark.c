@@ -1,6 +1,7 @@
 /** @file periodic_benchmark.c
  * @ingroup generator
- * @brief Implementation of a general periodic benchmark using real time timers.
+ * @brief Implementation of a general periodic benchmark using real time
+ * timers.
  * @details Timer expiration triggers a real time POSIX signal and `SIGINT` is
  * used to stop the benchmark and terminate the program.
  * @author Mattia Nicolella
@@ -8,8 +9,8 @@
  * **Dependencies**:
  * - POSIX.4 real-time signals.
  *
- * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench
- * contributors. SPDX-License-Identifier: MIT
+ * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the
+ * rt-bench contributors. SPDX-License-Identifier: MIT
  */
 
 #include "periodic_benchmark.h"
@@ -19,14 +20,18 @@
 #include "performance_counters.h"
 #include "performance_sampler.h"
 #include "signal_utils.h"
+#include "synch_release.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <unistd.h>
 
-/// This value in `::deadline_timer_status` determines that the deadline timer
-/// must be used
+/// This value in `::deadline_timer_status` determines that the deadline timer must be used
 #define DEADLINE_TIMER_IN_USE 1
 
 /// Default output path and filename for timing information.
@@ -69,16 +74,13 @@ static FILE *filep_sampler = NULL;
 /// Semaphore used to determine if a new job can be started.
 static sem_t period_sem;
 
-/// Timestamp in clock cycles of when the last job ended, it can be 0 if the job
-/// has not finished yet.
+/// Timestamp in clock cycles of when the last job ended, it can be 0 if the job has not finished yet.
 static unsigned long long job_end_timestamp_clocks = 0;
 
-/// Timestamp in clock cycles of when the last deadline since the job start has
-/// occurred.
+/// Timestamp in clock cycles of when the last deadline since the job start has occurred.
 static unsigned long long last_deadline_timestamp_clocks = 0;
 
-/// Timestamp in clock cycles of when the first deadline since the job start has
-/// occurred.
+/// Timestamp in clock cycles of when the first deadline since the job start has occurred.
 static unsigned long long job_deadline_timestamp_clocks = 0;
 
 /// Timestamp in clock cycles of the period end.
@@ -87,16 +89,13 @@ static unsigned long long job_period_end_timestamp_clocks = 0;
 /// Timestamp in clock cycles  of the period start.
 static unsigned long long job_period_start_timestamp_clocks = 0;
 
-/// Timestamp in seconds of when the last job ended, it can be 0 if the job has
-/// not finished yet.
+/// Timestamp in seconds of when the last job ended, it can be 0 if the job has not finished yet.
 static long double job_end_timestamp = 0;
 
-/// Timestamp in seconds of when the last deadline since the job start has
-/// occurred.
+/// Timestamp in seconds of when the last deadline since the job start has occurred.
 static long double last_deadline_timestamp = 0;
 
-/// Timestamp in seconds clock cycles of when the first deadline since the job
-/// start has occurred.
+/// Timestamp in seconds clock cycles of when the first deadline since the job start has occurred.
 static long double job_deadline_timestamp = 0;
 
 /// Timestamp in seconds of the period end.
@@ -196,6 +195,8 @@ static void stop_benchmark(int status, void *arg) {
         "Error: performance counters file descriptors could not be closed\n");
   }
 #endif
+  elogf(LOG_LEVEL_TRACE, "Freeing synch resources\n");
+  deallocate_synch_resources();
 }
 
 /**
@@ -244,16 +245,16 @@ static void deadline_handler(int signo, siginfo_t *info, void *context) {
  * @details
  * When the period expires and the job has terminated its execution, the
  * deadline timer is rearmed, the job's stats are reported, the semaphore is
- * unlocked and the reporting variables are reset. The start of the next period
- * matches with the end of the previous period. The next job starts as soon as
- * the semaphore is unlocked, and this creates a slight overhead, since before
- * unlocking the semaphore the previous job stats must be reported. When the
- * period ends but no start timestamp was recorded
+ * unlocked and the reporting variables are reset. The start of the next
+ * period matches with the end of the previous period. The next job starts as
+ * soon as the semaphore is unlocked, and this creates a slight overhead,
+ * since before unlocking the semaphore the previous job stats must be
+ * reported. When the period ends but no start timestamp was recorded
  * (`::job_period_start_timestamp` is `0`), no reporting will be done.
  *
  * If the job has not terminated when the period ends, a deadline skip is
- * reported if the deadline that has been missed is not the first since the job
- * start.
+ * reported if the deadline that has been missed is not the first since the
+ * job start.
  *
  * Finally, if the deadline matches the period, the period handler will also
  * perform the same operations as `deadline_handler()`, but will use the
@@ -360,12 +361,12 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
 }
 
 /** @details
- * This function will prepare the environment for executing the job, initialize
- * the timers and signal handlers. If `bytes_to_preallocate` in
+ * This function will prepare the environment for executing the job,
+ * initialize the timers and signal handlers. If `bytes_to_preallocate` in
  * `::execution_options` is not `0` (which is set in the command line via the
- * `-m` option) the memory watcher is also initialized. When the environment for
- * the periodic benchmark is initialized, the benchmark will be periodically
- * executed.
+ * `-m` option) the memory watcher is also initialized. When the environment
+ * for the periodic benchmark is initialized, the benchmark will be
+ * periodically executed.
  *
  * To execute the benchmark periodically we use two timers that fire different
  * real time signals:
@@ -376,8 +377,8 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
  * After the setup, the periodic benchmark will start after a
  * `::SIGNAL_END_PERIOD` is received, to allow a start with reduced delay.
  *
- * When a `SIGINT` is received, the timer will be destroyed and the environment
- * for the job execution will be cleaned.
+ * When a `SIGINT` is received, the timer will be destroyed and the
+ * environment for the job execution will be cleaned.
  *
  * The environment for the job execution is handled by calling the
  * `benchmark_init()` and `benchmark_teardown()` functions.
@@ -389,13 +390,15 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // variables used to handle signals
   int job_masked_signals_num = 2;
   int job_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD,
-                              SIGNAL_PERF_SAMPLE};
+                              SIGNAL_PERF_SAMPLE,SIGNAL_SYNCH_RELEASE};
   int quit_masked_signals_num = 3;
   int quit_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGINT,
-                               SIGNAL_PERF_SAMPLE};
+                               SIGNAL_PERF_SAMPLE,SIGNAL_SYNCH_RELEASE};
   // status variables
   int res;
-
+  // with synchronised start we need to wait on the local semaphore only the 1st
+  // time if there is no period.
+  int synch_wait_done = 0;
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
   // Initialize the performance sampler thread
   if (exec_opts->memory_profiling_enable) {
@@ -490,18 +493,31 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   elogf(LOG_LEVEL_TRACE, "Perf counters initialized\n");
 #endif
+  if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
+
+    elogf(LOG_LEVEL_TRACE, "Configuring synchonised start\n");
+    res = init_synchronised_benchmark_group(exec_opts->synch_start_group);
+    if (res < 0) {
+      return res;
+    }
+  }
   elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
   if (exec_opts->heap_size > 0) {
+    elogf(LOG_LEVEL_TRACE, "Starting memory watcher\n");
     start_memory_watcher(exec_opts->heap_size, exec_opts->heap_address,
                          exec_opts->heap_file_path);
   }
   res = benchmark_init(benchmark_param_num, benchmark_params);
   if (res < 0) {
-    perror("Error during job environment initialization");
+    elogf(LOG_LEVEL_ERR, "Error during job environment initialization");
     return res;
   }
   elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");
-  if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+  // we need to setup timers if we have a period or a synchonised start
+  // In case of a synchonised start the timer need to be setup to have all
+  // benchmarks start at the same timestamp
+  if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0 ||
+      exec_opts->synch_start == OPT_FEAT_ENABLED) {
     // we initialize the period semaphore to 0, to wait for the period end.
     res = sem_init(&period_sem, 1, 0);
     if (res < 0) {
@@ -528,7 +544,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
       deadline_timer_status = DEADLINE_TIMER_IN_USE;
       // the deadline timer is setup with 0 interval since it will be armed
       // once a period starts
-      res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0);
+      res = setup_timer(&deadline_timer, SIGNAL_DEADLINE, 0, 0, 0);
       if (res < 0) {
         return res;
       }
@@ -541,9 +557,16 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     } else {
       deadline_timer_status = !DEADLINE_TIMER_IN_USE;
     }
-
+    // before setting up the period timer we wait for the synchronised start
+    if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
+      res = wait_for_synch();
+      if (res<0){
+        elogf(LOG_LEVEL_ERR, "Error while synchronising benchmark group\n");
+        return res;
+      }
+    }
     res = setup_timer(&period_timer, SIGNAL_END_PERIOD, exec_opts->period_sec,
-                      exec_opts->period_nsec);
+                      exec_opts->period_nsec, TIMER_ABSTIME);
     if (res < 0) {
       return res;
     }
@@ -557,11 +580,13 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // launched the specified amount of benchmarks.
   while (tasks_launched < exec_opts->tasks_to_launch ||
          exec_opts->tasks_to_launch == 0) {
-    // we wait for the period to finish
-    if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0) {
+    // we wait for the period to finish or for the initial synch delay to be
+    // over
+    if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0 ||
+        (exec_opts->synch_start == OPT_FEAT_ENABLED && synch_wait_done == 0)) {
       do {
         res = sem_wait(&period_sem);
-
+        synch_wait_done = 1;
       } while ((exec_opts->period_nsec > 0 || exec_opts->period_nsec > 0) ||
                (res < 0 && errno == EINTR));
 

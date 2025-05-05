@@ -222,7 +222,7 @@ int setup_perf_sampler(cpu_set_t core_affinity, long unsigned time_bucket) {
   }
   elogf(LOG_LEVEL_DEBUG, "Creating timer for sampling thread\n");
   // create the timer that will periodically generate SIGNAL_PERF_SAMPLE
-  res = setup_timer(&perf_timer, SIGNAL_PERF_SAMPLE, 0, time_bucket);
+  res = setup_timer(&perf_timer, SIGNAL_PERF_SAMPLE, 0, time_bucket, 0);
   if (res < 0) {
     return res;
   }

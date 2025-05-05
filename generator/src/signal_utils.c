@@ -10,6 +10,7 @@
  */
 
 #include "signal_utils.h"
+#include "logging.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -44,17 +45,48 @@ int setup_signal(int handled_signal, void (*handler)(int, siginfo_t *, void *),
 
 /**
  * @details
- * The function will create and arm the timer for a periodic execution, with the
- * specified timing. The timer will be armed immediately after creation.\n
- * `interval_sec` and `interval_nsec` can be used in conjunction to specify when
- * the timer must expire and if they are both set to `0` the timer will not be
- * armed.
+ * The function will create and arm the timer for a periodic execution, with
+ * the specified timing. The timer will be armed immediately after creation.\n
+ * `interval_sec` and `interval_nsec` can be used in conjunction to specify
+ * when the timer must expire and if they are both set to `0` the timer will
+ * not be armed.
+ *
+ * The timer is armed at the beginning of the next period or if a synchonised
+ * start is in effect, after a common absolute timestamp. The latter option
+ * requires setting the timer time to absolute.
  */
 int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
-                long interval_nsec) {
+                long interval_nsec, int timer_type) {
   struct sigevent event;
   struct itimerspec timer_spec;
+  struct timespec initial_delay;
   int res = 0;
+  if (timer_type != TIMER_ABSTIME && timer_type != 0) {
+    elogf(LOG_LEVEL_ERR,
+          "Error during timer initialisation, wrong timer type supplied\n");
+    return -1;
+  }
+  if (timer_type == TIMER_ABSTIME) {
+    if (get_synch_status() == SYNCH_ENABLED) {
+      initial_delay = get_synch_delay();
+      if (initial_delay.tv_sec == 0 && initial_delay.tv_nsec == 0) {
+        elogf(LOG_LEVEL_ERR,
+              "Error during timer initialisation, synch delay value is 0");
+        return -1;
+      }
+    } else {
+      res = clock_gettime(CLOCK_REALTIME, &(initial_delay));
+      if (res < 0) {
+        perror("Error during timer initialisation, cannot get current time");
+        return res;
+      }
+      initial_delay.tv_sec += interval_sec;
+      initial_delay.tv_nsec += interval_nsec;
+    }
+  } else {
+    initial_delay.tv_sec = interval_sec;
+    initial_delay.tv_nsec = interval_nsec;
+  }
   memset(&event, 0, sizeof(event));
   // the timer will generate a signal
   event.sigev_notify = SIGEV_SIGNAL;
@@ -70,10 +102,10 @@ int setup_timer(timer_t *timer, int signal_generated, long interval_sec,
   // parameters
   timer_spec.it_interval.tv_sec = interval_sec;
   timer_spec.it_interval.tv_nsec = interval_nsec;
-  // the timer will start according to the setup deadline
-  timer_spec.it_value.tv_sec = interval_sec;
-  timer_spec.it_value.tv_nsec = interval_nsec;
-  res = timer_settime(*timer, 0, &timer_spec, NULL);
+  // the timer will start according to the setup deadline or the synchonised
+  // delay
+  timer_spec.it_value = initial_delay;
+  res = timer_settime(*timer, timer_type, &timer_spec, NULL);
   if (res < 0) {
     perror("Error during timer setup");
     return res;

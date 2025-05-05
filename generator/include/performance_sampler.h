@@ -3,8 +3,8 @@
  * @brief Functions exported by the performance sampler.
  * @author Denis Hoornaert
  *
- * @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de> and the rt-bench contributors.
- * SPDX-License-Identifier: MIT
+ * @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de> and the
+ * rt-bench contributors. SPDX-License-Identifier: MIT
  */
 
 #ifndef PERFORMANCE_SAMPLER_H
@@ -14,19 +14,19 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include "performance_counters.h"
 #include <sched.h>
 #include <stdio.h>
-#include "performance_counters.h"
 
 /// 1 KB in bytes
 #define KB 1024
 /// 1 MB in bytes
 #define MB KB *KB
 
-///Struct used to hold data sampled from the counters.
+/// Struct used to hold data sampled from the counters.
 struct sampling_data {
-	long unsigned samples; ///< The amount of measurements recorded.
-	struct perf_counters sum; ///< Sum of measurement recorded.
+  long unsigned samples;    ///< The amount of measurements recorded.
+  struct perf_counters sum; ///< Sum of measurement recorded.
 };
 
 /** @brief Setup the perf sampler.

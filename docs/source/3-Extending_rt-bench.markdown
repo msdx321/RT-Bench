@@ -21,11 +21,11 @@ To add a new benchmark set and integrate it with the other sets the following st
 2. The makefile in the repo root has to be updated with new targets that must be documented in the usage page:
    - `setup-new_set`: This target has to initialize the git submodule upon invocation.
      `setup-new_set` must also be included in as a dependency of the `setup` target.
-     **NOTE**:The `setup-new_set` target will be used to generate the documentation, so is in this target there are dependecies to specific scripts or executable that do not impact on documentation generation they should be enclosed in a `ifndef DOCS_ONLY` [dependency-specific code] `endif`. See the `setup-image-filters` target for a working example. 
+     **NOTE**:The `setup-new_set` target will be used to generate the documentation, so is in this target there are dependecies to specific scripts or executable that do not impact on documentation generation they should be enclosed in a `ifndef DOCS_ONLY` [dependency-specific code] `endif`. See the `setup-image-filters` target for a working example.
    - `compile-new_set`: This target has to compile all the benchmarks in the set.
    - `clean-new_set`: This target has to clean all the compilation and execution byproducts, including data, object files and executables generated.
      `clean-new_set` has also to be included as dependency of the `clean` target.
-     
+
    The newly created target have to be added to the grouped targets, creating a new group if necessary
 3. If the benchmark set uses a Makefile, the Makefile in `generator/rtbench.mk` has to be included as early as possible, since it will define the necessary compilation and linking flags according to the features enabled.
 
@@ -54,9 +54,9 @@ To add a new benchmark set and integrate it with the other sets the following st
 
     All the details of the benchmark set, including submodule setup, compilation, benchmarks general usage have to be described in this file.
     It is also possible to indicate TODOs and bugs by using the doxygen `@todo` and `@bug` commands.
-    
+
    To make sure that Doxygen will place the instruction in the correct location the file has to begin with the following snippet:
-   
+
    ```{.c}
    @defgroup new_set New benchmark set name.
    @ingroup benchmarks
@@ -68,21 +68,21 @@ To add a new benchmark set and integrate it with the other sets the following st
    SPDX-License-Identifier: [SPDX license expression]
    ```
 **NOTE**: Doxygen will raise an error if `@defgroup` is used more than once with the same parameters!
-   
+
    In case a .dox file is used, all the documentation has to be included in a Doxygen C-style comment:
    ```{.c}
    /**
     * [Snippet contents and documentation here]
     */
    ```
-   
+
    In case a .md file is used the `utils/md2dox.sh` script should be used to safely convert the markdown file to a .dox file, specifying the filename as first argument.
    It is possible to enclose doxygen commands in HTML comments (i.e. `<!-- @bug -->`) for a cleaner rendering of the markdown file. The script will take care to uncomment them during the conversion.
    It is advised to add the resulting .dox file to the repository gitignore.
    This is necessary since currently in doxygen there is no way to avoid having an page for every markdown file. In addition, when defining a group the content of the group description will be removed from the current page. The combination of markdown files that specify groups would then litter the documentation with empty pages.
 
 This step will ensure that all be benchmarks are grouped together and a new link will appear in the [Available Benchmarks](@ref #benchmarks) page.
-Furthermore, documentation specific only to the benchmark set can be placed inside the detailed description in Markdown syntax. 
+Furthermore, documentation specific only to the benchmark set can be placed inside the detailed description in Markdown syntax.
 
 
 It also possible and encouraged to create subsets if necessary, documented using the same procedure.
@@ -109,7 +109,7 @@ EXCLUDE = ../config \
 
 Changes in an RT-Bench submodule are not detected automatically to prevent the submodule breaking when breaking changes are introduced and to make te commit history of RT-Bench always deployable.
 Whenever a submodule is updated and it is judeged compatible to the current version of RT-Bench it is necessary to update the submodule reference SHA-1.
-A quick way to do this is by adding the submodule folder to the repo, committing and pushing the changes.    
+A quick way to do this is by adding the submodule folder to the repo, committing and pushing the changes.
 
 ## Add a new benchmark in an existing set {#new-bmark}
 
@@ -220,7 +220,7 @@ This will allow the script to be included in the [Utils](@ref #utils) page.
 The snippet can be located in a standalone .dox file, in `rt-bench/docs/source/modules/utils/new_script`. Or directly in one of the utility files.
 
 **NOTE**: Doxygen will raise an error if `@defgroup` is used more than once with the same parameters!
- 
+
 Script files must be located in the `utils` folder under the project root, it is up to the user to create a subfolder to group all the related script files together.
 Files have to be documented according to the [Documentation Rules](#docrules).
 Since doxygen is able to an extent to pickup documentation for different languages it is recommended to checkout the [doxygen manual](https://doxygen.nl/manual/starting.html#step0) to understand how to write comments for languages different than C.

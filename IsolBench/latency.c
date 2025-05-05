@@ -211,6 +211,7 @@ int benchmark_init(int parameters_num, void **parameters) {
   }
   free(perm);
   elogf(LOG_LEVEL_TRACE, "initialized.\n");
+  free(perm);
   return 0;
 }
 

@@ -59,6 +59,9 @@ struct execution_options {
                      ///< SCHED-DEADLINE
   uint64_t period;   ///< The SCHED_DEADLINE period in nano-seconds
   uint64_t deadline; ///< The SCHED-DEADLINE deadline in nano-seconds
+  const char *synch_start_group; ///< Shared memory name for synchronized
+                                 ///< benchmark start
+  uint8_t synch_start; ///< Flag to enable synchronized benchmark start
   /** Runtime memory profiling parameters */
   unsigned memory_profiling_enable;
   cpu_set_t memory_profiling_core_affinity;

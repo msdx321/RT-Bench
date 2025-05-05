@@ -25,7 +25,7 @@ All the documentation is accessible from the sidebar, and includes:
 - Tutorials and explanation pages which will cover the framework in general.
 - A todo list
 - A buglist
-- A Modules page, from which the documentation specific to the 
+- A Modules page, from which the documentation specific to the
   [RT-Bench Generator](@ref #generator), the [utilities](@ref #utils) and [benchmarks](@ref #benchmarks) can be accessed.
 - Files and data structures documentation (reachable also from the Modules page).
 
@@ -93,14 +93,14 @@ To implement the mentioned features, RT-Bench follow some core principles:
 To adhere to the above-mentioned principles, the benchmarks are required to implement their logic in the following functions:
 
 - `benchmark_init`: Initialization of the benchmark environment, executed only once.
-- `benchmark_execution`: Execution of the benchmark routines, executed periodically. 
+- `benchmark_execution`: Execution of the benchmark routines, executed periodically.
 - `benchmark_teardown`: Cleanup of the benchmark environment, executed before exiting.
 
 It is thus sufficient to split the benchmark `main` function into these have a compatible benchmark.
 The effort to convert benchmark in this way depends on the benchmark logic, however for the whole
 [San Diego Vision Benchmarks](@ref #SD-VBS) suite the conversion process, took ~300 SLOCs per benchmark.
 
-**Note**: RT-Bench makes no assumption on what is executed by these functions, 
+**Note**: RT-Bench makes no assumption on what is executed by these functions,
 so individual benchmarks may have additional dependencies or behave in a non-standard way.
 These details will be documented in each the benchmark module page.
 
@@ -109,7 +109,7 @@ the RT-Benchmark generator (specifically `periodic_benchmark.c`) will handle the
 execution in the following way:
 
 1. The RT-Bench environment is initialized, (including timers for the deadline and the period).
-  1. If reading Perf counters is supported in the current platform and the user 
+  1. If reading Perf counters is supported in the current platform and the user
   enables the counter monitoring, a thread can be created.
   2. The monitoring thread will continuously check if a `benchmark_execution` is running.
 2. `benchmark_execution` is executed to prepare the benchmark environment.

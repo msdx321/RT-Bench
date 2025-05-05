@@ -1,5 +1,10 @@
 /** @file get_fifo_max_prio.c
-@brief a simple C file that gives as output the max supported priority for the FIFO scheduler.
+ * @ingroup utils
+ * @brief a simple C file that gives as output the max supported priority for the FIFO scheduler.
+ * @author Mattia Nicolella
+ *
+ * @copyright (C) 2021 - 2022, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
+ * SPDX-License-Identifier: MIT
 */
 #include <sched.h>
 #include <stdio.h>
