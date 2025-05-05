@@ -25,8 +25,8 @@ override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap
 
 #optional features
 
-# #try to include a local config file with all the optional feature variables
-sinclude $(RTBENCH_GENERATOR_DIR)../options.mk
+# try to include a local config file with all the optional feature variables
+sinclude $(RTBENCH_GENERATOR_DIR)/../options.mk
 
 #message to the user so that he knows what features are enabled
 $(info )
