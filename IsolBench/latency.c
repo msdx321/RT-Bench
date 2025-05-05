@@ -209,6 +209,7 @@ int benchmark_init(int parameters_num, void **parameters) {
     list_add(&list[perm[i]].list, &head);
     // printf("%d\n", perm[i]);
   }
+  free(perm);
   elogf(LOG_LEVEL_TRACE, "initialized.\n");
   return 0;
 }

@@ -2,7 +2,7 @@ include ../generator/rtbench.mk
 PGMS=overhead get_fifo_max_prio
 
 all: $(PGMS)
-overhead:overhead.c $(RTBENCH)
+overhead: overhead.c $(RTBENCH)
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< $(RTBENCH_O) -o $@ $(LDFLAGS)
 	$(STATICX_REQ)
 	$(STATICX_CMD) overhead overhead.sx

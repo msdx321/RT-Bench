@@ -100,11 +100,11 @@ The `Makefile` provided in [Isolbench](@ref IsolBench) is a good example of how 
 
 Typically, once `generator/rtbench.mk` is included, five different variables are accessible:
 
-- `RTBENCH`: Caontains all dependencies to initialize and build the RT-Bench core components for the desired target. Must be a dependency for every benchmark executable.
+- `RTBENCH`: Contains all dependencies to initialise and build the RT-Bench core components for the desired target. Must be a dependency for every benchmark executable.
 - `CROSS_COMPILE`: user-specified cross compiler variable (i.e. aarch64-linux-gnu-)
 - `CC`: user-specified compiler for the desired target
 - `CFLAGS`: compilation flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
-- `BASE_O`: set of object files for the RT-Bench core components to be linked with the benchmark
+- `RTBENCH_O`: set of object files for the RT-Bench core components to be linked with the benchmark
 - `LDFLAGS`: linker flags. Automatically set by the `generator/rtbench.mk`, can be complemented with `override`
 - `STATICX_REQ`: Requirements to have [StaticX](#staticx) on path, undefined	when the feature is disabled.
 - `STATICX_CMD`: Command line for packing the executable with [StaticX](#staticx) replaced by a printf when the feature is disabled.
@@ -125,19 +125,16 @@ features. These features are not part of the default set of features as they
 depend on the benchmark nature itself or on the platform on which the benchmarks
 will be deployed.
 
-
 For each of the below features, there is a matching variable with can
 force-toggle the feature on or off, (consider as an example the JSON parser
 feature, it can be manually controlled by setting `FEAT_JSON=y` or
 `FEAT_JSON=n`). More details on these variables are in the corresponding feature section.
 
-### Using the Makefile scaffolding to toggle optional features
+Additionally, these variables can be stored in a `options.mk` makefile in the root
+of the repository to avoid having to input them manually each time. An example
+of the `options.mk` is provided below:
 
-These variables should be stored in a `options.mk` makefile in the root of the
-repository to have make properly detect changes and automatically trigger a full
-recompilation when necessary. An example of the `options.mk` is provided below:
-
-```{.mk}
+```
 #Path: rt-bench/options.mk
 #This makefile can be used to explicitly toggle RT-bench optional features
 # controlled by makefile variables. Refer to the documentation for more details.
@@ -147,10 +144,6 @@ FEAT_SCHED_DEADLINE=n
 #Example: enable json parser support
 FEAT_JSON=y
 ```
-
-Finally, options.mk is a regular makefile, which will be included in
-`generator/rtbench.mk` so it is possible to costomise all variable used by
-`generator/rtbench.mk` if necessary.
 
 ### Extended Reporting (Benchmark Specific Measurement Reporting)
 
