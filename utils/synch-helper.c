@@ -11,11 +11,13 @@
  * contributors. SPDX-License-Identifier: MIT
  */
 
+#include "signal_utils.h"
 #include "synch_release_data.h"
 #include <argp.h>
 #include <fcntl.h> /* For O_* constants */
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h> /* For mode constants */
 #include <unistd.h>
@@ -90,20 +92,25 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  res = asprintf(&(shm_name), "/shm_%s", parsed_args.name);
+  shm_name = malloc(sizeof(char) * (strlen("/rtbench.shm_") + strlen(parsed_args.name) + 1));
+  if (shm_name == NULL) {
+    perror("Error during shm name allocation");
+    return -1;
+  }
+  res = sprintf(shm_name, "/rtbench.shm_%s", parsed_args.name);
   if (res < 0) {
     perror("Errod during creation of synchronisation shm name");
     return res;
   }
 
-  printf("Waiting for shared memory %s to appear\n",shm_name);
+  printf("Waiting for shared memory %s to appear\n", shm_name);
   // now we wait for the master benchmark to initialise the shared memory
-  //@todo: find a better way to wait for events
+  //@todo: find a better way to wait for shm to be initialized
   while (fd <= 0) {
     fd = shm_open(shm_name, O_RDONLY, 0640);
     sleep(1);
   };
-	free(shm_name);
+  free(shm_name);
   shm = mmap(NULL, sizeof(struct synch_shm), PROT_READ, MAP_SHARED, fd, 0);
   if (shm == MAP_FAILED) {
     perror("Error during shared memory mapping for synchronised start");
@@ -119,7 +126,7 @@ int main(int argc, char **argv) {
     sleep(1);
   };
   printf("Unlocking group!\n");
-  res = kill(shm->master_pid, SIGUSR1);
+  res = kill(shm->master_pid, SIGNAL_SYNCH_RELEASE);
   if (res < 0) {
     perror("Cannot signal group master");
   }

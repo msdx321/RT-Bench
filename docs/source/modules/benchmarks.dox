@@ -73,18 +73,22 @@ The configuration defined in a JSON file can be complemented or partially overri
 - `-t`, `--tasks-number=integer>=0` The number of tasks to be executed. 0 means
   until the program receives a `SIGINT`. Default is 0.
 - `-s`, `--synchronized-start [group_name]` Enabling this option will make the benchmark synchronize its start with other
-     benchmarks in the same group by waiting for a SIGUSR1 signal.
+     benchmarks in the same group by waiting for a `::SIGNAL_SYNCH_RELEASE` signal.
 
-     Once one of the waiting benchmarks receives SIGUSR1 it will unlock itself and all
+     Once one of the waiting benchmarks receives `::SIGNAL_SYNCH_RELEASE` it will unlock itself and all
      other instances in the same group. The benchmarks in the group will then start at a common absolute timestamp.
 
-	Default name for the group is 'rt-bench'.
+	Default name for the group is 'default_group'.
 
 	The user need to put extra care in choosing a unique name for each experiment group when there are more than one.
 
   See the [synch helper](@ref synch-helper.c) program for a utility program that, given the group name and
-  number of benchmarks, will automatically send a `SIGUSR1` signal when all
+  number of benchmarks, will automatically send a `::SIGNAL_SYNCH_RELEASE` signal when all
   benchmarks in the group are ready to be started.
+
+  **NOTE:** If the benchmarks terminate without a call to `exit`, the
+    named semaphore an the shared memory need to be removed manually from
+    `/dev/shm`. These shared files have their name that starts with `rtbench.*`
 
   Check also [the synch compilation options](#synch-start) if there is a need to customise the default absolute timestamp.
 

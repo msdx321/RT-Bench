@@ -29,7 +29,8 @@
 #endif
 
 #ifndef SYNCH_DELAY_REL_NSEC
-/// Initial delay for the synchronized benchmark start in nanoseconds (default 1msecs)
+/// Initial delay for the synchronized benchmark start in nanoseconds (default
+/// 1msecs)
 #define SYNCH_DELAY_REL_NSEC 1000 * 1000
 #endif
 
@@ -64,9 +65,10 @@ struct timespec get_synch_delay() {
  * @param[in] info Why the signal was generated (unused).
  * @param[in] context interrupted thread context (unused).
  * @details
- * The process that receives `SIGUSR1` will try to elevete itself to be the
- * unblocker. It will check if the group size and the number of benchmarks
- * waiting for synchornisation matches and then proceed with the unblocking.
+ * The process that receives `::SYNCH_RELEASE_SIGNAL` will try to elevete itself
+ * to be the unblocker. It will check if the group size and the number of
+ * benchmarks waiting for synchornisation matches and then proceed with the
+ * unblocking.
  *
  * To unblock all benchmarks and keep them synchonised it will calculate an
  * absolute timestamp that will be used to initialise the deadline timer for all
@@ -156,30 +158,43 @@ void synch_on_start_handler(int signo, siginfo_t *info, void *context) {
  * shm will be considered the 'master' process and be responsible for setting
  * its size and initialising a unnamed semaphore used for synchronisation. All
  * benchmarks will then increase the `waiting_bmarks` variable in
- * `::synch_params_t` shared memory and register a `::SIGNAL_SYNCH_RELEASE` signal handler.
- * However the `::SIGNAL_SYNCH_RELEASE` will be blocked, to allow `benchmark_init` to
- * complete before the synchonised start.
+ * `::synch_params_t` shared memory and register a `::SIGNAL_SYNCH_RELEASE`
+ * signal handler. However the `::SIGNAL_SYNCH_RELEASE` will be blocked, to
+ * allow `benchmark_init` to complete before the synchonised start.
  */
 int init_synchronised_benchmark_group(const char *group_name) {
   int res, master = 0;
   sigset_t synch_sigset;
 
-  elogf(LOG_LEVEL_TRACE,
-        "Ignoring SIGUSR1s since bmark is not ready to be synched\n");
+  elogf(LOG_LEVEL_TRACE, "Ignoring synch release signals since bmark is not "
+                         "ready to be synched\n");
   sigemptyset(&synch_sigset);
-  sigaddset(&synch_sigset, SIGUSR1);
+  sigaddset(&synch_sigset, SIGNAL_SYNCH_RELEASE);
   res = sigprocmask(SIG_BLOCK, &synch_sigset, NULL);
   if (res < 0) {
-    perror("Error during SIGUSR1 blocking");
+    perror("Error during synch release signals blocking");
     return res;
   }
 
-  res = asprintf(&(synch_params.shm_name), "/shm_%s", group_name);
+  synch_params.shm_name =
+      malloc(sizeof(char) * (strlen("/rtbench.shm_") + strlen(group_name) + 1));
+  if (synch_params.shm_name == NULL) {
+    perror("Error during shm name allocation");
+    return -1;
+  }
+  synch_params.sem_name =
+      malloc(sizeof(char) * (strlen("/rtbench.sem_") + strlen(group_name) + 1));
+  if (synch_params.sem_name == NULL) {
+    perror("Error during semaphore name allocation");
+    return -1;
+  }
+
+  res = sprintf(synch_params.shm_name, "/rtbench.shm_%s", group_name);
   if (res < 0) {
     perror("Errod during creation of synchronisation shm name");
     return res;
   }
-  res = asprintf(&(synch_params.sem_name), "/sem_%s", group_name);
+  res = sprintf(synch_params.sem_name, "/rtbench.sem_%s", group_name);
   if (res < 0) {
     perror("Errod during creation of synchronisation semaphore name");
     return res;
@@ -256,8 +271,9 @@ int init_synchronised_benchmark_group(const char *group_name) {
     return res;
   }
   elogf(LOG_LEVEL_DEBUG, "mmapped shared memory\n");
-  int blocked_signals[1] = {SIGUSR1};
-  res = setup_signal(SIGUSR1, synch_on_start_handler, blocked_signals, 1);
+  int blocked_signals[1] = {SIGNAL_SYNCH_RELEASE};
+  res = setup_signal(SIGNAL_SYNCH_RELEASE, synch_on_start_handler,
+                     blocked_signals, 1);
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Error during handler setup for synchonised start\n");
     deallocate_synch_resources();
@@ -269,15 +285,15 @@ int init_synchronised_benchmark_group(const char *group_name) {
 /** @details
  * Check if a benchmark is "late" (i.e. when the group is already unblocked and
  * the current benchmark did wait on the synchonisation semaphore yet). Then
- * unlblock `SIGUSR1` and wait on the synchornisation semaphore. After begin
- * unlocked, ignore additional `SIGUSR1`. If synchornisation features are not
- * enabled, do nothing and return.
+ * unlblock `::SIGNAL_SYNCH_RELEASE` and wait on the synchornisation semaphore.
+ * After begin unlocked, ignore additional `::SIGNAL_SYNCH_RELEASE`. If
+ * synchornisation features are not enabled, do nothing and return.
  */
 int wait_for_synch() {
   int res = 0;
   bool unblock_val;
   sigset_t synch_sigset;
-  if ( synch_params.shm->status != SYNCH_ENABLED) {
+  if (synch_params.shm->status != SYNCH_ENABLED) {
     return res;
   }
   __atomic_load(&(synch_params.shm->unblocked), &unblock_val, __ATOMIC_SEQ_CST);
@@ -286,12 +302,12 @@ int wait_for_synch() {
           "Waiting on an already started set of benchmarks, aborting.\n");
     return -EXIT_FAILURE;
   }
-  elogf(LOG_LEVEL_TRACE, "Unblocking SIGUSR1s\n");
+  elogf(LOG_LEVEL_TRACE, "Unblocking synch release signal\n");
   sigemptyset(&synch_sigset);
-  sigaddset(&synch_sigset, SIGUSR1);
+  sigaddset(&synch_sigset, SIGNAL_SYNCH_RELEASE);
   res = sigprocmask(SIG_UNBLOCK, &synch_sigset, NULL);
   if (res < 0) {
-    perror("Error during SIGUSR1 unblocking");
+    perror("Error during synch release signal unblocking");
     return res;
   }
   do {
@@ -303,12 +319,12 @@ int wait_for_synch() {
       return res;
     }
   } while (res < 0 && errno == EINTR);
-  elogf(LOG_LEVEL_TRACE, "Ignoring additionals SIGUSR1s\n");
+  elogf(LOG_LEVEL_TRACE, "Ignoring additional synch release signals\n");
   sigemptyset(&synch_sigset);
-  sigaddset(&synch_sigset, SIGUSR1);
+  sigaddset(&synch_sigset, SIGNAL_SYNCH_RELEASE);
   res = sigprocmask(SIG_BLOCK, &synch_sigset, NULL);
   if (res < 0) {
-    perror("Error during SIGUSR1 blocking");
+    perror("Error during synch release signals blocking");
     return res;
   }
   elogf(LOG_LEVEL_TRACE, "benchmarks in sync.\n");

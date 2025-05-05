@@ -590,101 +590,118 @@ int main(int argc, char **argv) {
   const char *argp_args_doc = "";
   struct argp_option argp_options[] = {
 #ifdef JSON_SUPPORT
-    {0, 0, 0, 0, "Configuration input:", 1},
-    {"configuration-file", 'g', "config_path", 0,
-     "Specify the JSON file describing the configuration to use. Following "
-     "options complement or override the JSON description. Conversely, options "
-     "specified before are complemented or overwritten."},
+      {0, 0, 0, 0, "Configuration input:", 1},
+      {"configuration-file", 'g', "config_path", 0,
+       "Specify the JSON file describing the configuration to use. Following "
+       "options complement or override the JSON description. Conversely, "
+       "options "
+       "specified before are complemented or overwritten."},
 #endif
-    {0, 0, 0, 0, "Period and deadline options:", 2},
-    {"deadline", 'd', "secs", 0,
-     "The benchmark deadline in seconds. Can be an integer, float or in "
-     "scientific notation. Must be less or equal than the benchmark period."},
-    {"period", 'p', "secs", 0,
-     "The benchmark period, in seconds. `0` when omitted. Can be an integer, "
-     "float or in scientific notation. If period is `0` then the next job will "
-     "be executed directly after the current job, in a back-to-back fashion."},
-    {0, 0, 0, 0, "Execution options:", 3},
-    {"core-affinity", 'c', "core0,core1,...", 0,
-     "The benchmark core affinity, expressed as a comma separated list. A "
-     "single core id is also accepted."},
-    {"mem-limit", 'm', "bytes[GMK]", 0,
-     "The maximum amount of dynamic memory allocated during the periodic "
-     "execution. If exceeded, the benchmark will crash. Specified as an "
-     "integer plus an optional magnitude modifier: K=kilobytes, M=megabytes, "
-     "G=gigabytes. Without a magnitude modifier specified the value is assumed "
-     "to be in bytes. 0 Means no limit, and it is the default setting."},
-    {"heap-location", 'H', "0xdeadbeef or path/to/file", 0,
-     "The location of the heap, requires mem-limit to be set. "
-     "Make sure to have enough space for both the benchmark and malloc's data "
-     "structures. "
-     "It can be either a file or a physical address (in this case /dev/mem "
-     "will be used). "},
-    {"tasks-number", 't', "integer>=0", 0,
-     "The number of tasks to be executed. 0 means until the program receives a "
-     "SIGINT. Default is 0."},
-    {"synchronized-start", 's', "group_name", OPTION_ARG_OPTIONAL,
-     "Enabling this option will make the benchmark synchronize its start with "
-     "other "
-     "benchmarks in the same group by waiting for a SIGUSR1 signal. Once one "
-     "of "
-     "the waiting benchmarks receives SIGUSR1 it will unlock itself and all "
-     "other instances in the same group. The benchmarks in the group will then "
-     "start at a common absolute timestamp. Default name for the group is '"
-     SYNCH_GRP_DEFAULT_NAME"' The user need to put extra care in choosing a unique name "
-     "for each experiment group when there are more than one."},
-    {0, 0, 0, 0, "Scheduling options:\n\n", 4},
-    {"fifo", 'f', "0<=prio<=99", 0,
-     "Set SCHED_FIFO priority with specified priority. Need root."},
+      {0, 0, 0, 0, "Period and deadline options:", 2},
+      {"deadline", 'd', "secs", 0,
+       "The benchmark deadline in seconds. Can be an integer, float or in "
+       "scientific notation. Must be less or equal than the benchmark period."},
+      {"period", 'p', "secs", 0,
+       "The benchmark period, in seconds. `0` when omitted. Can be an integer, "
+       "float or in scientific notation. If period is `0` then the next job "
+       "will "
+       "be executed directly after the current job, in a back-to-back "
+       "fashion."},
+      {0, 0, 0, 0, "Execution options:", 3},
+      {"core-affinity", 'c', "core0,core1,...", 0,
+       "The benchmark core affinity, expressed as a comma separated list. A "
+       "single core id is also accepted."},
+      {"mem-limit", 'm', "bytes[GMK]", 0,
+       "The maximum amount of dynamic memory allocated during the periodic "
+       "execution. If exceeded, the benchmark will crash. Specified as an "
+       "integer plus an optional magnitude modifier: K=kilobytes, M=megabytes, "
+       "G=gigabytes. Without a magnitude modifier specified the value is "
+       "assumed "
+       "to be in bytes. 0 Means no limit, and it is the default setting."},
+      {"heap-location", 'H', "0xdeadbeef or path/to/file", 0,
+       "The location of the heap, requires mem-limit to be set. "
+       "Make sure to have enough space for both the benchmark and malloc's "
+       "data "
+       "structures. "
+       "It can be either a file or a physical address (in this case /dev/mem "
+       "will be used). "},
+      {"tasks-number", 't', "integer>=0", 0,
+       "The number of tasks to be executed. 0 means until the program receives "
+       "a "
+       "SIGINT. Default is 0."},
+      {"synchronized-start", 's', "group_name", OPTION_ARG_OPTIONAL,
+       "Enabling this option will make the benchmark synchronize its start "
+       "with "
+       "other "
+       "benchmarks in the same group by waiting for a SIGUSR1 signal. Once one "
+       "of "
+       "the waiting benchmarks receives SIGUSR1 it will unlock itself and all "
+       "other instances in the same group. The benchmarks in the group will "
+       "then "
+       "start at a common absolute timestamp. Default name for the group is "
+       "'" SYNCH_GRP_DEFAULT_NAME
+       "' The user need to put extra care in choosing a unique name "
+       "for each experiment group when there are more than one.\n "
+       "If the benchmarks terminate without a call to `exit`, the named "
+       "semaphore an the shared memory need to be removed manually from "
+       "/dev/shm. These shared files have their name that starts with "
+       "rtbench.*"},
+      {0, 0, 0, 0, "Scheduling options:\n\n", 4},
+      {"fifo", 'f', "0<=prio<=99", 0,
+       "Set SCHED_FIFO priority with specified priority. Need root."},
 #ifdef SCHED_DEADLINE_SUPPORT
-    {"sched-runtime", 'T', "ns", 0,
-     "Set SCHED_DEADLINE runtime. Alternative to --fifo. Need root."},
-    {"sched-deadline", 'D', "ns", 0,
-     "Set SCHED_DEADLINE deadline. Alternative to --fifo. Need root."},
-    {"sched-period", 'P', "ns", 0,
-     "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least "
-     "--sched-period has to be specified to set sched_deadline params. If "
-     "deadline is not specified, deadline is set to period. If runtime is not "
-     "specified, runtime is set to deadline. NOTE: These parameters are "
-     "different from --period and --deadline used to control the repetitive "
-     "execution of the thread. To generate valid execution that are not "
-     "truncated under hard server reservation, period < sched-period and "
-     "deadline < sched-deadline."},
+      {"sched-runtime", 'T', "ns", 0,
+       "Set SCHED_DEADLINE runtime. Alternative to --fifo. Need root."
+       "If runtime is not specified, runtime is set to deadline."},
+      {"sched-deadline", 'D', "ns", 0,
+       "Set SCHED_DEADLINE deadline. Alternative to --fifo. Need root."
+       "IF deadline is not specified, deadline is set to period."},
+      {"sched-period", 'P', "ns", 0,
+       "Set SCHED_DEADLINE period. Alternative to --fifo. Need root. At least "
+       "--sched-period has to be specified to set sched_deadline."
+       "These parameters are different from --period and --deadline used to "
+       "control the repetitive execution of the thread."
+       "To generate valid execution that are not "
+       "truncated under hard server reservation, period < sched-period and "
+       "deadline < sched-deadline."},
 #endif
-    {0, 0, 0, 0, "Reporting options:", 5},
+      {0, 0, 0, 0, "Reporting options:", 5},
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
-    {"memory-profiling-enable", 'M', "bool", 0,
-     "Enables runtime memory profiling. Specify '1' to enable or '0' "
-     "otherwise."},
-    {"memory-profiling-core", 'C', "core0, core1,...", 0,
-     "Core affinity of the runtime memory profiling thread. If not specified, "
-     "it matches the 'core-affinity' parameter. Warning: "
-     "'memory-profiling-enable' must be asserted for this parameter to take "
-     "effect."},
-    {"memory-profiling-time-bucket", 'B', "ns", 0,
-     "Period between measurements performed by the runtime memory profiler. If "
-     "not specified, time bucket of 10ms is set. Warning: "
-     "'memory-profiling-enable' must be asserted for this parameter to take "
-     "effect."},
+      {"memory-profiling-enable", 'M', "bool", 0,
+       "Enables runtime memory profiling. Specify '1' to enable or '0' "
+       "otherwise."},
+      {"memory-profiling-core", 'C', "core0, core1,...", 0,
+       "Core affinity of the runtime memory profiling thread. If not "
+       "specified, "
+       "it matches the 'core-affinity' parameter. Warning: "
+       "'memory-profiling-enable' must be asserted for this parameter to take "
+       "effect."},
+      {"memory-profiling-time-bucket", 'B', "ns", 0,
+       "Period between measurements performed by the runtime memory profiler. "
+       "If "
+       "not specified, time bucket of 10ms is set. Warning: "
+       "'memory-profiling-enable' must be asserted for this parameter to take "
+       "effect."},
 #endif
-    {"log-level", 'l', "log-lvl", 0,
-     "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
-     "Print benchmark stats to output file.\n3 - Print benchmark stats to "
-     "stdout.\n4 - Print also informative messages on stderr.\n5 - Print also "
-     "additional debug information.\nDefault is 3."},
-    {"output", 'o', "output_path", 0,
-     "Where the info on the benchmark execution will be written. If not "
-     "supplied, \"./timing.csv\" will be used."},
-    {0, 0, 0, 0, "Benchmark arguments and options:", 6},
-    {"bmark-args", 'b', "arg opt ...", 0,
-     "A space-separated list of arguments and options that must be relayed "
-     "directly to the benchmark. It must be specified after every other option "
-     "since everything after it will be passed directly to the benchmark "
-     "routine."},
-    {0, 0, 0, 0, "Informational options:\n", -1},
-    {NULL, 'h', NULL, 0, NULL},
-    {0, 0, 0, 0, 0, 0}
-  };
+      {"log-level", 'l', "log-lvl", 0,
+       "Log level, can be one of the following:\n1 - Print only errors.\n2 - "
+       "Print benchmark stats to output file.\n3 - Print benchmark stats to "
+       "stdout.\n4 - Print also informative messages on stderr.\n5 - Print "
+       "also "
+       "additional debug information.\nDefault is 3."},
+      {"output", 'o', "output_path", 0,
+       "Where the info on the benchmark execution will be written. If not "
+       "supplied, \"./timing.csv\" will be used."},
+      {0, 0, 0, 0, "Benchmark arguments and options:", 6},
+      {"bmark-args", 'b', "arg opt ...", 0,
+       "A space-separated list of arguments and options that must be relayed "
+       "directly to the benchmark. It must be specified after every other "
+       "option "
+       "since everything after it will be passed directly to the benchmark "
+       "routine."},
+      {0, 0, 0, 0, "Informational options:\n", -1},
+      {NULL, 'h', NULL, 0, NULL},
+      {0, 0, 0, 0, 0, 0}};
   // initializing argp struct
   struct argp argp = {0};
   argp.args_doc = argp_args_doc;

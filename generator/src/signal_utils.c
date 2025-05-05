@@ -11,8 +11,10 @@
 
 #include "signal_utils.h"
 #include "logging.h"
+#include "synch_release.h"
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 int setup_signal(int handled_signal, void (*handler)(int, siginfo_t *, void *),
                  int *masked_signals, int masked_signals_num) {

@@ -16,7 +16,7 @@
 #include <sys/types.h>
 
 /// Default name for the synchonised benchmark group.
-#define SYNCH_GRP_DEFAULT_NAME "rt-bench"
+#define SYNCH_GRP_DEFAULT_NAME "default_group"
 
 /// Enum to query the status of the synchronised release features.
 enum synch_status {
