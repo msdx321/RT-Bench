@@ -186,14 +186,14 @@ $(RTBENCH_OBJ_FLDR): %:
 $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c:
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
 	@git submodule update --init --recursive $(RTBENCH_SRC_FLDR)/dlmalloc
+
+$(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk
 	@echo "setting up dlmalloc"
 	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
-
-$(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 $(RTBENCH_OBJ_FLDR)/main.o: $(RTBENCH_SRC_FLDR)/main.c  $(RTBENCH_H) $(PROJ_ROOT)/options.mk
