@@ -113,23 +113,14 @@ uint64_t get_elapsed(struct timespec *start, struct timespec *end) {
 
 /// @brief Print usage info.
 void usage(int argc, char *argv[]) {
-  ologf(LOG_LEVEL_INFO,"Usage: $ %s [<option>]*\n\n", argv[0]);
-  ologf(LOG_LEVEL_INFO,"-m: memory size in KB. deafult=%d\n", DEFAULT_ALLOC_SIZE_KB);
-  ologf(LOG_LEVEL_INFO,"-s: turn on the serial access mode\n");
-  ologf(LOG_LEVEL_INFO,"-i: iterations. default=%d\n", DEFAULT_ITER);
-  ologf(LOG_LEVEL_INFO,"-h: help\n");
+  ologf(LOG_LEVEL_INFO, "Usage: $ %s [<option>]*\n\n", argv[0]);
+  ologf(LOG_LEVEL_INFO, "-m: memory size in KB. deafult=%d\n",
+        DEFAULT_ALLOC_SIZE_KB);
+  ologf(LOG_LEVEL_INFO, "-s: turn on the serial access mode\n");
+  ologf(LOG_LEVEL_INFO, "-i: iterations. default=%d\n", DEFAULT_ITER);
+  ologf(LOG_LEVEL_INFO, "-h: help\n");
   exit(1);
 }
-
-/**
- * @brief This handler returns the latency as the extra measurement metric.
- * @details
- * This function returns a string mentioning the metric of the benchmark
- * (here, the latency in ns). This function is only called if the benchmark has
- * been built with the `-DEXTENDED_REPORT`.
- * @returns a constant string starting with `,` that extends the report header.
- */
-const char *benchmark_log_header() { return ",latency(ns)"; }
 
 /**
  * @brief Will interpret the benchmark parameters and initialize the testbed.
@@ -210,6 +201,14 @@ int benchmark_init(int parameters_num, void **parameters) {
     // printf("%d\n", perm[i]);
   }
   free(perm);
+  // setup extra measurement struct
+  extra_measurement.num_elements = 1;
+  extra_measurement.header = ",latency(ns)";
+  extra_measurement.data = malloc(sizeof(double));
+  if (extra_measurement.data == NULL) {
+    elogf(LOG_LEVEL_ERR, "Cannot allocate memory for extra measurement\n");
+    return -1;
+  }
   elogf(LOG_LEVEL_TRACE, "initialized.\n");
   return 0;
 }
@@ -250,9 +249,11 @@ void benchmark_execution(int parameters_num, void **parameters) {
  * This function returns the experienced latency (ns) as a float after
  * each execution phase. This function is only called if the benchamrk has
  * been built with the `-DEXTENDED_REPORT`.
- * @returns The measured latency (ns)
  */
-float benchmark_log_data() { return (float)avglat; }
+void benchmark_log_data(void) {
+  *extra_measurement.data = (double)avglat;
+  extra_measurement.status = EXTRA_MEASUREMENT_VALID;
+}
 
 /**
  * @brief Will revert what `benchmark_init()` has done to initialize the
@@ -263,6 +264,9 @@ float benchmark_log_data() { return (float)avglat; }
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
   uint64_t nsdiff;
+  if (extra_measurement.data != NULL) {
+    free(extra_measurement.data);
+  }
   if (repeat == 0) {
     clock_gettime(CLOCK_REALTIME, &end);
 

@@ -113,9 +113,6 @@ static struct perf_counters job_perf_counters_start;
 /// Performance counters at the end of the period.
 static struct perf_counters job_perf_counters_end;
 
-/// Extra benchmark dependant measured data.
-static float extra_measurement = 0.0f;
-
 /**
  * @brief Teardown function registered to be called when exit is called.
  * @param[in] status The exit status.
@@ -310,8 +307,7 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
           job_perf_counters_start.clock_count,
           job_perf_counters_end.l1_references, job_perf_counters_end.l1_refills,
           job_perf_counters_end.l2_references, job_perf_counters_end.l2_refills,
-          job_perf_counters_end.inst_retired, job_perf_counters_end.clock_count,
-          extra_measurement);
+          job_perf_counters_end.inst_retired, job_perf_counters_end.clock_count);
 
     }
 #ifdef PRINT_SKIPPED_DEADLINE
@@ -321,11 +317,15 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
           last_deadline_timestamp != job_deadline_timestamp) {
         print_statistics(filep, 0, 0, 0, last_deadline_timestamp_clocks, 0.0,
                          0.0, 0.0, last_deadline_timestamp, job_end_timestamp,
-                         job_deadline_timestamp, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                         0.0);
+                         job_deadline_timestamp, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                       );
       }
     }
 #endif /* PRINT_SKIPPED_DEADLINE */
+#ifdef EXTENDED_REPORT
+    // we invalidate the status of the extra measurements after printing them
+    extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
+#endif
   }
   // If a job has ended or we are starting for the first time we need to reset
   // the reporting variables and unlock the semaphore.
@@ -341,9 +341,6 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
     job_period_end_timestamp = 0;
     job_end_timestamp = 0;
     job_deadline_timestamp = 0;
-#ifdef EXTENDED_REPORT
-    extra_measurement = 0.0f;
-#endif
     // if signo is <0 where in the continuous execution mode, so we don't have
     // to unlock the semaphore.
     if (signo >= 0) {
@@ -433,37 +430,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     }
   }
   elogf(LOG_LEVEL_TRACE, "Execution environment setup complete\n");
-  if (benchmark_verbosity == LOG_LEVEL_FILE) {
-    elogf(LOG_LEVEL_TRACE, "Starting output file setup\n");
-    filep = open_output_file(DEFAULT_OUTPUT_PATH, exec_opts->output_path,
-                             ".csv", "w+");
-    char log_header[1024];
-    memset(log_header, 0, 1024);
-    strcat(log_header,
-           "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_"
-           "cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),"
-           "period_start(seconds),period_end(seconds),job_end(seconds),job_"
-           "deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_"
-           "utilization,job_density");
-#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
-    strcat(log_header, ",job_l1_references,job_l1_misses,job_l1_miss_ratio(%%),"
-                       "job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),"
-                       "instructions_retired,cpu_clock_count");
-#endif
-#ifdef EXTENDED_REPORT
-    strcat(log_header, benchmark_log_header());
-#endif
-    strcat(log_header, "\n");
-    fprintf(filep, "%s", log_header);
-    if (exec_opts->output_path != NULL) {
-      free(exec_opts->output_path);
-    }
-    if (filep == NULL) {
-      perror("Cannot open output file");
-      return -1;
-    }
-    elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
-  }
   res = setup_signal(SIGINT, quit_handler, quit_masked_signals,
                      quit_masked_signals_num);
   if (res < 0) {
@@ -492,11 +458,44 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     elogf(LOG_LEVEL_TRACE, "Starting memory watcher\n");
     start_memory_watcher(exec_opts->heap_size, exec_opts->heap_address,
                          exec_opts->heap_file_path);
+    elogf(LOG_LEVEL_TRACE, "Started memory watcher\n");
   }
   res = benchmark_init(benchmark_param_num, benchmark_params);
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Error during job environment initialization");
     return res;
+  }
+	// tse the extra measurements to be invalid
+    extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
+  // due to the extra measurement amount not beign known before setup, the
+  // header setup for output file has to be done after `benchmark_init()`
+  if (benchmark_verbosity == LOG_LEVEL_FILE) {
+    elogf(LOG_LEVEL_TRACE, "Starting output file setup\n");
+    filep = open_output_file(DEFAULT_OUTPUT_PATH, exec_opts->output_path,
+                             ".csv", "w+");
+    if (filep == NULL) {
+      perror("Cannot open output file");
+      return -1;
+    }
+    fprintf(filep,
+            "period_start(clock_cycles),period_end(clock_cycles),job_end(clock_"
+            "cycles),job_deadline(clock_cycles),job_elapsed(clock_cycles),"
+            "period_start(seconds),period_end(seconds),job_end(seconds),job_"
+            "deadline(seconds),job_elapsed(seconds),deadline_status(1=met),job_"
+            "utilization,job_density");
+#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
+    fprintf(filep, ",job_l1_references,job_l1_misses,job_l1_miss_ratio(%%),"
+                   "job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),"
+                   "instructions_retired,cpu_clock_count");
+#endif
+#ifdef EXTENDED_REPORT
+    fprintf(filep, "%s", extra_measurement.header);
+#endif
+    fprintf(filep, "\n");
+    if (exec_opts->output_path != NULL) {
+      free(exec_opts->output_path);
+    }
+    elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
   }
   elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");
   // we need to setup timers if we have a period or a synchonised start
@@ -580,6 +579,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
         perror("Error during period semaphore wait");
         return res;
       }
+    extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
     } // the very first execution might need to explicitly sample the start
     // timestamp
     if (job_period_start_timestamp_clocks == 0) {
@@ -605,7 +605,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     job_end_timestamp_clocks = get_rdtsc();
     job_end_timestamp = get_timestamp();
 #ifdef EXTENDED_REPORT
-    extra_measurement = benchmark_log_data();
+    benchmark_log_data();
 #endif
     // we update the number of launched benchmarks
     tasks_launched++;

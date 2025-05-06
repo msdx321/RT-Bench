@@ -390,6 +390,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
                      "Error during core affinity argument parsing");
       }
       res = 0;
+			elogf(LOG_LEVEL_DEBUG,"Setting affinity with core %d\n",affinity_core);
       CPU_SET(affinity_core, &parsed_args->core_affinity);
       // we search for other cores and prepare the sscanf input to read the next
       // core id.
@@ -398,6 +399,7 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
         affinity_substr++;
       }
     }
+		elogf(LOG_LEVEL_DEBUG,"affinity with %d cores\n",CPU_COUNT(&parsed_args->core_affinity));
     if (CPU_COUNT(&parsed_args->core_affinity) == 0) {
       argp_failure(
           state, EXIT_FAILURE, errno,

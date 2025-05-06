@@ -27,6 +27,9 @@ FILE *log_filep = NULL;
  */
 enum log_level benchmark_verbosity = LOG_LEVEL_INFO;
 
+/// Extra benchmark dependant measured data.
+struct benchmark_extra_data extra_measurement = {0};
+
 /** @brief Reports the benchmark timing depending on the chosen logging level.
  * @param[in] file The file where the timing will be printed if the logging
  * level is set to `::LOG_LEVEL_FILE`.
@@ -226,18 +229,32 @@ ologf(LOG_LEVEL_INFO,",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
   }
 }
 
-void print_extra_data(FILE *file, float extra_measurement) {
+/** @brief Print extra data for benchmarks that have the EXTENDED_REPORT macro
+ * defined.
+ * @param[in] file The output file where the extra data will be printed.
+ */
+void print_extra_data(FILE *file) {
+  int i;
   switch (benchmark_verbosity) {
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
-ologf(benchmark_verbosity,"Extra benchmark metric: %f\n", extra_measurement);
+    // print the the header extra metrics but skip the first comma
+    ologf(benchmark_verbosity,"Extra metrics:\n%s\n", extra_measurement.header + 1);
+    for (i = 0; i < extra_measurement.num_elements; i++) {
+      ologf(benchmark_verbosity,"%lf ", extra_measurement.data[i]);
+    }
+    ologf(benchmark_verbosity,"\n");
     break;
   case LOG_LEVEL_FILE:
-    fprintf(file, ",%f", extra_measurement);
+    for (i = 0; i < extra_measurement.num_elements; i++) {
+      fprintf(file, ",%lf", extra_measurement.data[i]);
+    }
     break;
   case LOG_LEVEL_INFO:
-ologf(LOG_LEVEL_INFO,",%f", extra_measurement);
+    for (i = 0; i < extra_measurement.num_elements; i++) {
+      ologf(LOG_LEVEL_INFO,",%lf", extra_measurement.data[i]);
+    }
     break;
   case LOG_LEVEL_ERR:
   case LOG_LEVEL_MIN:
@@ -257,7 +274,7 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
                       long unsigned clock_count_start, long unsigned l1_ref_end,
                       long unsigned l1_miss_end, long unsigned l2_ref_end,
                       long unsigned l2_miss_end, long unsigned inst_retired_end,
-                      long unsigned clock_count_end, float extra_measurement) {
+                      long unsigned clock_count_end) {
   print_timing(file, period_start_clocks, period_end_clocks, job_end_clocks,
                deadline_clocks, period_start, period_end, job_end, deadline);
 #if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
@@ -268,7 +285,9 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
 #endif
 
 #ifdef EXTENDED_REPORT
-  print_extra_data(file, extra_measurement);
+  if (extra_measurement.status == EXTRA_MEASUREMENT_VALID) {
+    print_extra_data(file);
+  }
 #endif
 
   switch (benchmark_verbosity) {

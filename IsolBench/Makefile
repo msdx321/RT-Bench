@@ -5,7 +5,7 @@ FEAT_EXTENDED_REPORT ?= y
 RTBENCH_PATH=$(realpath ../)
 include $(RTBENCH_PATH)/generator/rtbench.mk
 
-PGMS=bandwidth latency
+PGMS=bandwidth latency bandwidth-threads
 
 all: $(PGMS)
 

@@ -36,10 +36,10 @@ To add a new benchmark set and integrate it with the other sets the following st
     For [StaticX](#staticx) compilation to be supported, each Makefile rule has
     to include two commands after the executable is generated:
 
-		```{.mk}
-		$(STATICX_REQ)
-		$(STATICX_CMD) [executable name] [executable name].sx
-		```
+    ```{.mk}
+    $(STATICX_REQ)
+    $(STATICX_CMD) [executable name] [executable name].sx
+    ```
 
     `$(STATICX_REQ)` makes sure that a default virtual environment with all
     Python dependencies is installed and active before using StaticX if the
@@ -120,7 +120,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 1. It is recommended to create a folder with the benchmark name that will contain all the benchmark-exclusive files (example: `new_set/new_benchmark`), but there are no defined rules on how the benchmark set folder must be organized, it is sufficient to explain how to maintain, compile and execute the benchmarks in the set documentation.
 2. It is recommended to create a set that will group all the files that compose the benchmark.
    The set is defined as follows and this snippet can be located in standalone .dox file or in any of the benchmark files:
-   ```
+   ```{.c}
    /**
     * @defgroup new_benchmark
     * @ingroup new_set
@@ -139,7 +139,7 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 **NOTE**: Doxygen will raise an error if `@defgroup` is used more than once with the same parameters!
 3. Each source file and header must have a documentation header with a reference to the benchmark module, a brief description of the file contents and optionally a detailed description of the file contents (example: `new_set/new_benchmark/benchmark_file.c`,`new_set/new_benchmark/benchmark_header.h`).
     The example for `new_set/new_benchmark/benchmark_file.c`, `new_set/new_benchmark/benchmark_header.h` is the same:
-   ```
+   ```{.c}
    /**
     * @file benchmark_file.c
     * @ingroup new_benchmark
@@ -155,17 +155,17 @@ When adding and integrating new benchmark in an existing benchmark set the follo
 3. Files have to be documented according to the [Documentation Rules](#docrules). An exception can be made for symbols and function that were not written as a result of the adaptation.
 4. The benchmark files _must_ export three functions:
 	-
-    ```
+    ```{.c}
     int benchmark_init(int parameters_num, void **parameters)
     ```
 	Will initialize the benchmark using the supplied parameters. This initialization is run only once so it needs to prepare the benchmark for periodic execution (eg. reading data from file, allocation memory, preparing data structures,...) Data written by this function must be treated a read-only, while memory allocated can be freely used, but should be reset after execution.
 	-
-    ```
+    ```{.c}
     void benchmark_execution(int parameters_num, void **parameters)
     ```
 	Will execute the benchmark as if it was launched for the first time. It must treat data from the `benchmark_init` function as read-only and reset any used memory location to its initial value after the benchmark has completed, to ensure that periodic executions will have always the same environment and hence the same result.
 	-
-    ```
+    ```{.c}
     void benchmark_teardown(int parameters_num, void **parameters)
     ```
 	Will revert all the operations done by `benchmark_init` and free allocated memory, to ensure a clean termination of the program. This function is executed only when the program is terminating.
@@ -174,30 +174,24 @@ When adding and integrating new benchmark in an existing benchmark set the follo
   Global variables can be used to maintain data between different calls of these three functions.
 
 5. The benchmark files must import the following libraries (provided by the [RT-Bench Generator](@ref #generator)):
-  - The logging library provieded by RT-Bench.
-  ```
-  #include "logging.h"
-  ```
   - The header that defines the exported functions along with other macros and dependencies.
-  ```
+  ```{.c}
     #include "periodic_benchmark.h"
   ```
 
-6. _Optionally_, the benchmark can export functions for the extending the report interface. For this, only two functions are necessary:
-	-
+6. _Optionally_, the benchmark can extend the report interface to report custom metrics.
+	- The `perioic_benchmark.h` exposes a `struct benchmark_extra_data extra_measurement` that needs to be initialized with a csv header that starts with the comma (`,`) character, the number of extra measurements and a data array of to hold extra metrics.
+	Initializing these members is the responsibility of `benchmark_init()` and deallocation, if needed, is responsibility of `benchmark_teardown()`.
+	- The benchmark needs also to expose the following function:
+    ```{.c}
+    void benchmark_log_data(void)
     ```
-    const char* benchmark_log_header()
-    ```
-  	Which returns a constant string to extend the csv header (e.g., ",bandwidth(MB/S)" for isolbench/bandwidth)
-	-
-    ```
-    float benchmark_log_data()
-    ```
-	  Which returns the benchmark-specific measurement.
+	  Which has to update the data array with the benchmark-specific measurement and change the status of the measurement to `EXTRA_MEASUREMENT_VALID`. This function will be called at the end of every task.
 
-  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these functions to be called.
+  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these metrics to be reported.
 
-Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example.
+Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example without extra metrics.
+An The [IsolBench](@ref #IsolBench) suite has benchmarks that report extra metrics and can be referred to as working examples.
 
 
 ## Add scripts and utilities
@@ -275,7 +269,7 @@ There are no defined rules on how the module folder must be organized, it is suf
 
 3. Each source file and header must have a documentation header with a reference to the benchmark module, a brief description of the file contents and optionally a detailed description of the file contents (example: `new_set/file.c`,`new_set/header.h`).
     The example for `new_set/file.c`, `new_set/header.h` is the same:
-   ```
+   ```{.c}
    /**
     * @file file.c
     * @ingroup new_module
