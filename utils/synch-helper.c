@@ -11,8 +11,6 @@
  * contributors. SPDX-License-Identifier: MIT
  */
 
-#include "signal_utils.h"
-#include "synch_release_data.h"
 #include <argp.h>
 #include <fcntl.h> /* For O_* constants */
 #include <signal.h>
@@ -21,6 +19,9 @@
 #include <sys/mman.h>
 #include <sys/stat.h> /* For mode constants */
 #include <unistd.h>
+
+#include "signal_utils.h"
+#include "synch_release_data.h"
 
 /// Options for this program.
 struct options {
@@ -43,13 +44,17 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
                  arg);
     }
     break;
+  case 'h':
+    argp_state_help(state, stdout, ARGP_HELP_USAGE | ARGP_HELP_LONG);
+    exit(EXIT_SUCCESS);
+    break;
   case ARGP_KEY_END:
     if (parsed_args->name == NULL) {
       parsed_args->name = SYNCH_GRP_DEFAULT_NAME;
     }
     if (parsed_args->size <= 0) {
       argp_error(state,
-                 "Error while parsing group size: %lu in an invalid size\n",
+                 "Error while parsing group size: %lu in an invalid benchmark number\n",
                  parsed_args->size);
     }
   default:
@@ -63,7 +68,6 @@ int main(int argc, char **argv) {
   int fd = 0, res = 0, ret = 0;
   char *shm_name;
   struct synch_shm *shm;
-
   // argp variables
   const char *argp_doc = "Synchronise a group of benchmarks.";
   const char *argp_args_doc = "";
@@ -78,21 +82,22 @@ int main(int argc, char **argv) {
        "for each experiment group when there are more than one."},
       {"num-bench", 'n', "integer>=0", 0,
        "Number of benchmarks to synchonise, excluding this program."},
-  };
+      {NULL, 'h', NULL, 0, NULL},
+      {0}};
   struct argp argp = {0};
   argp.args_doc = argp_args_doc;
   argp.doc = argp_doc;
   argp.parser = parse_opt;
   argp.options = argp_options;
-
   // parsing parameters
-  res = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &parsed_args);
+  res = argp_parse(&argp, argc, argv, 0, 0, &parsed_args);
   if (res != 0) {
     perror("Error during argument parsing");
     return EXIT_FAILURE;
   }
 
-  shm_name = malloc(sizeof(char) * (strlen("/rtbench.shm_") + strlen(parsed_args.name) + 1));
+  shm_name = malloc(sizeof(char) *
+                    (strlen("/rtbench.shm_") + strlen(parsed_args.name) + 1));
   if (shm_name == NULL) {
     perror("Error during shm name allocation");
     return -1;

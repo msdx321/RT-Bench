@@ -172,6 +172,7 @@ DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=16U
 else
 $(error alignment of $(MEM_WATCHER_ALIGN) is not supported, only 1, 8 and 16 are supported)
 endif
+$(info Memory alignment for set to $(MEM_WATCHER_ALIGN) bytes)
 override CFLAGS+=-fpack-struct=$(MEM_WATCHER_ALIGN)
 override CFLAGS+=-DFEAT_MEM_WATCHER_ALIGN=$(MACRO_FEAT_ENABLED)
 override CFLAGS+=-DMEM_WATCHER_ALIGN=$(MEM_WATCHER_ALIGN)
@@ -228,8 +229,8 @@ $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c:
 
 $(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk
 	@echo "setting up dlmalloc"
-	sed -i 's/\(extern void \*\)mbed_sbrk/\1rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
-	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -i 's/\(extern void \*\)mbed_sbrk/\1rtbench_sbrk/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE rtbench_sbrk/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c

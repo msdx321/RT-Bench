@@ -14,7 +14,7 @@ get_fifo_max_prio: get_fifo_max_prio.c
 	$(STATICX_CMD) get_fifo_max_prio get_fifo_max_prio.sx
 
 synch-helper: synch-helper.c ../generator/include/synch_release_data.h
-	$(CC) $(CFLAGS) $< -o $@
+	$(CROSS_COMPILE)$(CC) -g -Wall -DGCC -D_GNU_SOURCE -I$(RTBENCH_H_FLDR) $< -o $@
 	$(STATICX_REQ)
 	$(STATICX_CMD) synch-helper synch-helper.sx
 clean:

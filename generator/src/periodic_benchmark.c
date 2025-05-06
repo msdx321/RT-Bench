@@ -164,9 +164,6 @@ static void stop_benchmark(int status, void *arg) {
     }
   }
 #endif
-  if (log_filep != NULL) {
-    close_output_file(log_filep);
-  }
   if (deadline_timer != NULL) {
     elogf(LOG_LEVEL_TRACE, "Deleting deadline timer\n");
     res = timer_delete(deadline_timer);
@@ -194,6 +191,9 @@ static void stop_benchmark(int status, void *arg) {
 #endif
   elogf(LOG_LEVEL_TRACE, "Freeing synch resources\n");
   deallocate_synch_resources();
+  if (log_filep != NULL) {
+    close_output_file(log_filep);
+  }
 }
 
 /**

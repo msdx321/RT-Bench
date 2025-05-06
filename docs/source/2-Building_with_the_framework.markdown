@@ -153,16 +153,29 @@ report interface to include the desired _benchmark-specific_ measurement.
 Providing the benchmarks follow the rules mentioned in the
 [benchmark](3-Extending_rt-bench.markdown)[
 structure](3-Extending_rt-bench.markdown), extended reporting can be enabled by
-adding the `-DFEAT_EXTENDED_REPORT_SUPPORT=1` flag in the compilation command line or by setting the `FEAT_EXTENDED_REPORT` make variable to `1`.
+adding the `-DFEAT_EXTENDED_REPORT_SUPPORT=1` flag in the compilation command line or by setting the `FEAT_EXTENDED_REPORT` make variable to `y`.
 
 This feature be controlled in a limited fashion by the Makefile scaffolding since it's
 benchmark-specific.
 
+See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an example.
+
+### Extra logging to a dedicated log file
+
 If some benchmarks have specific output, RT-Bench allows writing that output to
 a specific log file, called `::log_filep` via the `flogf()` macro. This file is
-automatically opened before the benchmark initialization and closed when the execution is about to finish if the `FEAT_BENCH_LOG_FILE` variable is set to `1` in the Makefile or if `-DFEAT_BMARK_LOG_FILE_SUPPORT=1` is added to the compilation command line. Conversely, this feature can be disabled by not passing the flag or setting the make variable to `0`.
+automatically opened before the benchmark initialization and closed when the execution is about to finish if the `FEAT_BENCH_LOG_FILE` variable is set to `y` in the Makefile or if `-DFEAT_BMARK_LOG_FILE_SUPPORT=1` is added to the compilation command line. Conversely, this feature can be disabled by not passing the flag or setting the make variable to `n`.
 
-See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an example.
+#### Redirect all output to log file
+
+Independently from the logging level expressed with the `-l` CLI option, it is
+also possible to redirect all output to the extra log file by specifying
+`FEAT_DEBUG_FILE=y`. The same effect can be achieved compiling with
+`-DFEAT_DEBUG_FILE=1`
+
+This option requires `FEAT_BENCH_LOG_FILE=y` and will redirect all the loggin
+primitives to the log file; to aid debugging if writing to `stdout` / `stderr`
+is not the desired approach.
 
 ### JSON configuration files support {#json_support}
 
@@ -273,6 +286,23 @@ This feature can be enabled or force-disabled with the make variable
 `FEAT_STATICX=y` or `FEAT_STATICX=n`.
 
 Executables packed with staticx will have the `.sx` extension.
+
+### Memory alignment
+
+It is possible to change the default memory alignment for heap memory and
+structs by setting `FEAT_MEM_WATCHER_ALIGN=y` and
+`MEM_WATCHER_ALIGN=<alignment>` variables. The same effect can be achieved
+compiling with `-fpack-struct=<alignment>`, `-DFEAT_MEM_WATCHER_ALIGN=1` and
+`-DMEM_WATCHER_ALIGN=<aligment>`.
+
+This optional feature will use the `-fpack-struct` GCC option and change the
+alignment of the memory watcher allocation function `dlmalloc`, used when the
+heap is migrated with the `-H` CLI option.
+
+`MEM_WATCHER_ALIGN` supports only the following alignments:
+- `1` byte
+- `8` bytes
+- `16` bytes
 
 @author Mattia Nicolella, Denis Hoornaert
 @copyright (C) 2021 - 2022, Denis Hoornaert <denis.hoornaert@tum.de>, Mattia Nicolella <mnico@bu.edu> and the rt-bench contributors.
