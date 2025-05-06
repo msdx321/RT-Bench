@@ -16,6 +16,12 @@
  * This allows the benchmark to be run periodically, by re-running only the
  * execution portion.
  *
+ * Furhtermore, the benchmark has been reworked to spawn multiple concurrent
+ * threads that perform the same operation of the original benchmark.
+ * 
+ * **Dependencies**
+ *
+ * POSIX pthreads
  */
 
 /**************************************************************************
