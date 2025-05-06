@@ -1,7 +1,3 @@
-#features enabled by default
-FEAT_BMARK_LOG_FILE ?= y
-FEAT_EXTENDED_REPORT ?= y
-
 RTBENCH_PATH=$(realpath ../)
 include $(RTBENCH_PATH)/generator/rtbench.mk
 

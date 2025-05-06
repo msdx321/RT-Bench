@@ -134,7 +134,7 @@ Additionally, these variables can be stored in a `options.mk` makefile in the ro
 of the repository to avoid having to input them manually each time. An example
 of the `options.mk` is provided below:
 
-```
+```{.mk}
 #Path: rt-bench/options.mk
 #This makefile can be used to explicitly toggle RT-bench optional features
 # controlled by makefile variables. Refer to the documentation for more details.
@@ -151,12 +151,8 @@ Some benchmark classes (e.g., synthetic workloads) measure specific impacts on
 the platform. RT-Bench offers the possibility to extend the existing `.csv`
 report interface to include the desired _benchmark-specific_ measurement.
 Providing the benchmarks follow the rules mentioned in the
-[benchmark](3-Extending_rt-bench.markdown)[
-structure](3-Extending_rt-bench.markdown), extended reporting can be enabled by
-adding the `-DFEAT_EXTENDED_REPORT_SUPPORT=1` flag in the compilation command line or by setting the `FEAT_EXTENDED_REPORT` make variable to `y`.
-
-This feature be controlled in a limited fashion by the Makefile scaffolding since it's
-benchmark-specific.
+[benchmark creation guide](3-Extending_rt-bench.markdown), extended reporting does not need nay
+specific compilation or makefile flags.
 
 See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an example.
 
@@ -164,18 +160,18 @@ See IsolBench Makefile and the `latency.c` and `bandwidth.c` files for an exampl
 
 If some benchmarks have specific output, RT-Bench allows writing that output to
 a specific log file, called `::log_filep` via the `flogf()` macro. This file is
-automatically opened before the benchmark initialization and closed when the execution is about to finish if the `FEAT_BENCH_LOG_FILE` variable is set to `y` in the Makefile or if `-DFEAT_BMARK_LOG_FILE_SUPPORT=1` is added to the compilation command line. Conversely, this feature can be disabled by not passing the flag or setting the make variable to `n`.
+automatically opened whenever `log_filep` is detected as the output file for
+`flogf()`. The log file has the same name of the output file, however it
+features a `.log` extension. Finally, subsequent runs will be recorded in the
+same file in append mode, with a header to separate them.
 
 #### Redirect all output to log file
 
-Independently from the logging level expressed with the `-l` [CLI option](@ref synch-start-cli), it is
-also possible to redirect all output to the extra log file by specifying
-`FEAT_DEBUG_FILE=y`. The same effect can be achieved compiling with
-`-DFEAT_DEBUG_FILE=1`
-
-This option requires `FEAT_BENCH_LOG_FILE=y` and will redirect all the loggin
-primitives to the log file; to aid debugging if writing to `stdout` / `stderr`
-is not the desired approach.
+Independently from the logging level expressed with the `-l` [CLI option](@ref
+synch-start-cli), it is also possible to redirect all output to the extra log
+file by specifying `FEAT_DEBUG_FILE=y`. The same effect can be achieved
+compiling with `-DFEAT_DEBUG_FILE=1`. This feature is intended to aid debugging
+if writing to `stdout` / `stderr` is not the desired approach.
 
 ### JSON configuration files support {#json_support}
 

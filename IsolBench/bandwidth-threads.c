@@ -837,8 +837,7 @@ static inline double calculate_bandwidth(unsigned int start, unsigned int end,
  * @brief This handler computes the bandwidth as the extra measurement. @details
  * This function computes the experienced bandwidth (MBps) as a double after
  * each execution phase, reporting both the total and per thread extracted
- * bandwidth . This function is only called if the benchamrk has been built with
- * the `-DEXTENDED_REPORT`.
+ * bandwidth .
  */
 void benchmark_log_data(void) {
   int i;

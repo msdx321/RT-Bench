@@ -33,14 +33,15 @@ To accommodate so it is possible to add these variables before invoking the `mak
 Some of options supported by the top-level Makefile are (all options described in
 [Building with the framework](#compilation)):
 
-- `CC=<target-compiler>` to select a specific compiler (default is `gcc`). This enables cross compiling!
-- `CORE=<target-core>` to specify the core model of the target platform. This flag enables performance metric reporting! (**Note:** this flag alone does not enforce cross compiling; please use the previously line as a complement)
-- `FEAT_EXTENDED_REPORT=1` to specify that the target benchmark(s) will provide extended information via the reporting system. (**Note:** This flag does not guarantee that the target benchmark(s) supports this option!)
+- `CC=<target-compiler>` to select a specific compiler (default is `gcc`).
+- `CROSS_COMPILE=<cross-compiler-slug>` to select a specific cross compiler (example `aarch64-linux-gnu-`).
+- `FEAT_PERF=y` to enable performance metrics reporting.
+- `CORE=<target-core>` to specify the core model of the target platform. (**Note:** this flag alone does not enforce cross compiling; please use the `CC` and `CROSS_COMPILE` variables as a complement)
 
-The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled, and (4) will provide extended report:
+The example below (1) will include support for JSON configuration files (discussed [here](@ref #benchmarks)), (2) is cross-compiled for ARM64, (3) will have performance counters access enabled:
 
 ```{.sh}
-FEAT_JSON=y CROSS-COMPILE=aarch64-linux-gnu- CC=gcc-11  FEAT_PERF=y CORE=CORTEX_A53 FEAT_EXTENDED_REPORT=y make
+FEAT_JSON=y CROSS-COMPILE=aarch64-linux-gnu- CC=gcc-11  FEAT_PERF=y CORE=CORTEX_A53 make
 ```
 
 However, we discourage using make variables in the commandline since this might
@@ -58,7 +59,6 @@ CROSS-COMPILE=aarch64-linux-gnu-
 CC=gcc-11
 FEAT_PERF=y
 CORE=CORTEX_A53
-FEAT_EXTENDED_REPORT=y
 ```
 
 #### General targets

@@ -97,22 +97,8 @@ else
  endif
 endif
 
-# Check if extended report is desired
-ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_EXTENDED_REPORT)),$(FEAT_ENABLED))
- $(info Extended report enabled)
- override CFLAGS+=-DFEAT_EXTENDED_REPORT_SUPPORT=$(MACRO_FEAT_ENABLED)
- #override object folder so benchmarks with extended report
- #and benchmarks without can both benefit from make features
- RTBENCH_OBJ_FLDR=$(RTBENCH_GENERATOR_DIR)/object/$(notdir $(CC))/extended-report
-endif
 
-# Check if log file is desired
-ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_BMARK_LOG_FILE)),$(FEAT_ENABLED))
- $(info Benchmark log file enabled)
- override CFLAGS+=-DFEAT_BMARK_LOG_FILE_SUPPORT=$(MACRO_FEAT_ENABLED)
-endif
-
-# Check if extended report is desired
+# Check if redirection of all output to log file desired
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_DEBUG_FILE)),$(FEAT_ENABLED))
  $(info Benchmark debug logs to file are enabled)
  override CFLAGS+=-DFEAT_DEBUG_FILE=$(MACRO_FEAT_ENABLED)

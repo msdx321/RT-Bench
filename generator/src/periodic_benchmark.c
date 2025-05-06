@@ -31,7 +31,8 @@
 #include <time.h>
 #include <unistd.h>
 
-/// This value in `::deadline_timer_status` determines that the deadline timer must be used
+/// This value in `::deadline_timer_status` determines that the deadline timer
+/// must be used
 #define DEADLINE_TIMER_IN_USE 1
 
 /// Default output path and filename for timing information.
@@ -74,13 +75,16 @@ static FILE *filep_sampler = NULL;
 /// Semaphore used to determine if a new job can be started.
 static sem_t period_sem;
 
-/// Timestamp in clock cycles of when the last job ended, it can be 0 if the job has not finished yet.
+/// Timestamp in clock cycles of when the last job ended, it can be 0 if the job
+/// has not finished yet.
 static unsigned long long job_end_timestamp_clocks = 0;
 
-/// Timestamp in clock cycles of when the last deadline since the job start has occurred.
+/// Timestamp in clock cycles of when the last deadline since the job start has
+/// occurred.
 static unsigned long long last_deadline_timestamp_clocks = 0;
 
-/// Timestamp in clock cycles of when the first deadline since the job start has occurred.
+/// Timestamp in clock cycles of when the first deadline since the job start has
+/// occurred.
 static unsigned long long job_deadline_timestamp_clocks = 0;
 
 /// Timestamp in clock cycles of the period end.
@@ -89,13 +93,16 @@ static unsigned long long job_period_end_timestamp_clocks = 0;
 /// Timestamp in clock cycles  of the period start.
 static unsigned long long job_period_start_timestamp_clocks = 0;
 
-/// Timestamp in seconds of when the last job ended, it can be 0 if the job has not finished yet.
+/// Timestamp in seconds of when the last job ended, it can be 0 if the job has
+/// not finished yet.
 static long double job_end_timestamp = 0;
 
-/// Timestamp in seconds of when the last deadline since the job start has occurred.
+/// Timestamp in seconds of when the last deadline since the job start has
+/// occurred.
 static long double last_deadline_timestamp = 0;
 
-/// Timestamp in seconds clock cycles of when the first deadline since the job start has occurred.
+/// Timestamp in seconds clock cycles of when the first deadline since the job
+/// start has occurred.
 static long double job_deadline_timestamp = 0;
 
 /// Timestamp in seconds of the period end.
@@ -307,7 +314,8 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
           job_perf_counters_start.clock_count,
           job_perf_counters_end.l1_references, job_perf_counters_end.l1_refills,
           job_perf_counters_end.l2_references, job_perf_counters_end.l2_refills,
-          job_perf_counters_end.inst_retired, job_perf_counters_end.clock_count);
+          job_perf_counters_end.inst_retired,
+          job_perf_counters_end.clock_count);
 
     }
 #ifdef PRINT_SKIPPED_DEADLINE
@@ -317,15 +325,12 @@ static void period_handler(int signo, siginfo_t *info, void *context) {
           last_deadline_timestamp != job_deadline_timestamp) {
         print_statistics(filep, 0, 0, 0, last_deadline_timestamp_clocks, 0.0,
                          0.0, 0.0, last_deadline_timestamp, job_end_timestamp,
-                         job_deadline_timestamp, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                       );
+                         job_deadline_timestamp, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       }
     }
 #endif /* PRINT_SKIPPED_DEADLINE */
-#ifdef EXTENDED_REPORT
     // we invalidate the status of the extra measurements after printing them
     extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
-#endif
   }
   // If a job has ended or we are starting for the first time we need to reset
   // the reporting variables and unlock the semaphore.
@@ -384,10 +389,10 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // variables used to handle signals
   int job_masked_signals_num = 2;
   int job_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD,
-                              SIGNAL_PERF_SAMPLE,SIGNAL_SYNCH_RELEASE};
+                              SIGNAL_PERF_SAMPLE, SIGNAL_SYNCH_RELEASE};
   int quit_masked_signals_num = 3;
   int quit_masked_signals[] = {SIGNAL_DEADLINE, SIGNAL_END_PERIOD, SIGINT,
-                               SIGNAL_PERF_SAMPLE,SIGNAL_SYNCH_RELEASE};
+                               SIGNAL_PERF_SAMPLE, SIGNAL_SYNCH_RELEASE};
   // status variables
   int res;
   // with synchronised start we need to wait on the local semaphore only the 1st
@@ -400,8 +405,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     filep_sampler =
         open_output_file(DEFAULT_PERFORMANCE_COUNTER_SAMPLING_OUTPUT_PATH,
                          exec_opts->output_path, "_perf_profile.csv", "w+");
-    res = setup_perf_sampler(
-                             exec_opts->memory_profiling_core_affinity,
+    res = setup_perf_sampler(exec_opts->memory_profiling_core_affinity,
                              exec_opts->memory_profiling_time_bucket);
     if (res != 0) {
       perror("Error during the creation of the performance sampler thread");
@@ -465,8 +469,8 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     elogf(LOG_LEVEL_ERR, "Error during job environment initialization");
     return res;
   }
-	// tse the extra measurements to be invalid
-    extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
+  // set the extra measurements to be invalid
+  extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
   // due to the extra measurement amount not beign known before setup, the
   // header setup for output file has to be done after `benchmark_init()`
   if (benchmark_verbosity == LOG_LEVEL_FILE) {
@@ -488,9 +492,10 @@ int periodic_benchmark(struct execution_options *exec_opts) {
                    "job_l2_references,job_l2_misses,job_l2_miss_ratio(%%),"
                    "instructions_retired,cpu_clock_count");
 #endif
-#ifdef EXTENDED_REPORT
-    fprintf(filep, "%s", extra_measurement.header);
-#endif
+    // print the extra measurement header if it exists
+    if (extra_measurement.header != NULL) {
+      fprintf(filep, "%s", extra_measurement.header);
+    }
     fprintf(filep, "\n");
     if (exec_opts->output_path != NULL) {
       free(exec_opts->output_path);
@@ -545,7 +550,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     // before setting up the period timer we wait for the synchronised start
     if (exec_opts->synch_start == OPT_FEAT_ENABLED) {
       res = wait_for_synch();
-      if (res<0){
+      if (res < 0) {
         elogf(LOG_LEVEL_ERR, "Error while synchronising benchmark group\n");
         return res;
       }
@@ -579,7 +584,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
         perror("Error during period semaphore wait");
         return res;
       }
-    extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
+      extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
     } // the very first execution might need to explicitly sample the start
     // timestamp
     if (job_period_start_timestamp_clocks == 0) {
@@ -604,9 +609,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
 #endif
     job_end_timestamp_clocks = get_rdtsc();
     job_end_timestamp = get_timestamp();
-#ifdef EXTENDED_REPORT
     benchmark_log_data();
-#endif
     // we update the number of launched benchmarks
     tasks_launched++;
     // if the period is 0, reporting happens as soon as the current job

@@ -188,8 +188,6 @@ When adding and integrating new benchmark in an existing benchmark set the follo
     ```
 	  Which has to update the data array with the benchmark-specific measurement and change the status of the measurement to `EXTRA_MEASUREMENT_VALID`. This function will be called at the end of every task.
 
-  Note that, as indicated in [the building guidelines](#compilation), the `-DEXTENDED_REPORT` compilation flag _must_ be used for these metrics to be reported.
-
 Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example without extra metrics.
 An The [IsolBench](@ref #IsolBench) suite has benchmarks that report extra metrics and can be referred to as working examples.
 

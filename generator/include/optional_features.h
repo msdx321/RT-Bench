@@ -35,12 +35,6 @@
 #endif
 #endif
 
-// tell the user if they are using the extended report version
-#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                   \
-     FEAT_EXTENDED_REPORT_SUPPORT == OPT_FEAT_ENABLED)
-#define EXTENDED_REPORT
-#endif
-
 // If  SCHED_DEADLINE is not defined we cannot use the deadline scheduler.
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -77,18 +71,10 @@ typedef uint16_t mem_watcher_address_t;
 typedef void mem_watcher_address_t;
 #endif
 
-#endif
 
 /// Enable the log file if the user wants to redirect the debug messages there
 #if defined FEAT_DEBUG_FILE && FEAT_DEBUG_FILE == OPT_FEAT_ENABLED
 #define DEBUG_FILE
-// enable log file support
-#ifndef FEAT_BMARK_LOG_FILE_SUPPORT
-#define FEAT_BMARK_LOG_FILE_SUPPORT OPT_FEAT_ENABLED
-#else
-// if log file support was disabled by the user we have a problem
-#if FEAT_BMARK_LOG_FILE_SUPPORT != OPT_FEAT_ENABLED
-#error "User requested to redirect debug output to debug file and disabled the usage of debug file"
 #endif
-#endif
-#endif
+
+#endif /*RT_BENCH_OPTIONAL_FEATURES_H*/

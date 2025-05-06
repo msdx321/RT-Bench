@@ -23,6 +23,7 @@
 
 #include "optional_features.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 /// Deadline missed status.
 #define DEADLINE_MISSED 0
@@ -59,7 +60,8 @@ struct benchmark_extra_data {
   char *header;     ///< The header string that needs to be printed for the csv
                     ///< output.
   double *data;     ///< The array of extra metrics.
-enum extra_measurement_status status; ///< The status of the extra measurements.
+  enum extra_measurement_status
+      status; ///< The status of the extra measurements.
 };
 
 /// The benchmark-specific extra measurements
@@ -79,24 +81,43 @@ extern FILE *log_filep;
  * @details This simple function will leverage `fprintf()` to print the given
  * message only if the `::benchmark_verbosity` is >= of the message log level.
  *
- * If the `file` parameter is `::log_filep` and it is NULL the function will do
- * nothing to avoid printing errors when the optional benchmark log file is not
- * open.
+ * If the `file` parameter is `::log_filep` then the logfile will be open if
+ * necessary. If the `DEBUG_FILE` feature is enabled, then all messages will be
+ * printed in the log file and the file argument will be ignored.
  */
 #ifndef DEBUG_FILE
 #define flogf(mesg_log_level, file, format, ...)                               \
-  if (&file != &log_filep || file != NULL) {                                   \
-    if (mesg_log_level <= benchmark_verbosity) {                               \
-      fprintf(file, format, ##__VA_ARGS__);                                    \
+  do {                                                                         \
+    if (&file == &log_filep && log_filep == NULL) {                            \
+      log_filep = open_log_file();                                             \
+      if (log_filep == NULL) {                                                 \
+        perror("Error during log file setup\n");                               \
+        exit(-EXIT_FAILURE);                                                   \
+      }                                                                        \
     }                                                                          \
-  }
+    if (file != NULL) {                                                        \
+      if (mesg_log_level <= benchmark_verbosity) {                             \
+        fprintf(file, format, ##__VA_ARGS__);                                  \
+      }                                                                        \
+    } else {                                                                   \
+      fprintf(stderr, "Cannot print on output file\n");                        \
+      exit(-EXIT_FAILURE);                                                     \
+    }                                                                          \
+  } while (0);
 #else
 #define flogf(mesg_log_level, file, format, ...)                               \
-  if (log_filep != NULL) {                                   \
+  do {                                                                         \
+    if (log_filep == NULL) {                                                   \
+      log_filep = open_log_file();                                             \
+      if (log_filep == NULL) {                                                 \
+        perror("Error during log file setup\n");                               \
+        exit(-EXIT_FAILURE);                                                   \
+      }                                                                        \
+    }                                                                          \
     if (mesg_log_level <= benchmark_verbosity) {                               \
       fprintf(log_filep, format, ##__VA_ARGS__);                               \
     }                                                                          \
-  }
+  } while (0);
 #endif
 
 /** @brief Logging interface for `stdout`.
@@ -180,10 +201,9 @@ FILE *open_output_file(char *default_filename, char *filename_prefix,
                        char *filename_suffix, char *mode);
 
 /** @brief Open a log file. Prefixing each run with the current date.
- * @param[in] filename The pathname (and extension) of the log file to open.
  * @returns A `FILE*` pointer or `NULL` in case or error, setting `errno`.
  */
-FILE *open_log_file(char *filename);
+FILE *open_log_file();
 
 /** @brief Closes an output file.
  * @param[in] file The file pointer of the log file to close.
@@ -191,14 +211,22 @@ FILE *open_log_file(char *filename);
  */
 int close_output_file(FILE *file);
 
+/** @brief Initialize the path for the log file.
+ * @param[in] path The path to the log file.
+ */
+void init_log_file_path(char *path);
+
+/** @brief Return the path of the log file (wihtout extension)
+ * @returns Return the path of the log file (wihtout extension)
+ */
+char *get_log_file_path(void);
+
 /** @cond SKIP
  * Documentation of the following prototypes is delegated to the benchmark that
  * implements them.
  */
-#ifdef EXTENDED_REPORT
 // the function to log extra measurements
 void benchmark_log_data(void);
-#endif
 /// @endcond
 
 #endif

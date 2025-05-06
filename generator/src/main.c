@@ -370,6 +370,8 @@ static int interpret_opt(int key, const char *arg, struct argp_state *state) {
       argp_failure(state, EXIT_FAILURE, errno,
                    "Can't allocate memory for output filename.");
     }
+		//initialize the output path for the log file
+		init_log_file_path(parsed_args->output_path);
     break;
   case 'l':
     log_level = atoi(arg);
@@ -703,17 +705,6 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
-    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
-  if (benchmark_verbosity > LOG_LEVEL_ERR) {
-    log_filep = open_log_file(parsed_args.output_path);
-    elogf(LOG_LEVEL_TRACE, "Opened Log file\n");
-    if (log_filep == NULL) {
-      perror("Error during log file setup\n");
-      return -1;
-    }
-  }
-#endif
   if (parsed_args.period_sec == 0 && parsed_args.period_nsec == 0)
     elogf(LOG_LEVEL_INFO, "Using continuous execution model, benchmark will "
                           "be restarted as soon as it completes.\n");

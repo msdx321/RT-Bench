@@ -16,6 +16,10 @@ FILE *log_filep = NULL;
 /// Default output path and filename for log information.
 #define DEFAULT_LOG_OUTPUT_PATH "./benchmark.log"
 
+/// The path to the log output file. This has to be seupt while parsing
+/// arguments.
+static char *log_filep_path = NULL;
+
 /** @details
  * The benchmark verbosity should be initialized only in during the benchmark
  * startup. It is made available as a global variable since every time the
@@ -137,26 +141,29 @@ void print_timing(FILE *file, unsigned long long period_start_clocks,
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     if (job_end != 0) {
-ologf(benchmark_verbosity,"\nJob completed\n");
-ologf(benchmark_verbosity,"period start: %llu clock cycles\t %.9Lf seconds \t-\t period "
-             "end: %llu clock cycles\t %.9Lf seconds\n",
-             period_start_clocks, period_start, period_end_clocks, period_end);
-ologf(benchmark_verbosity,"job end: %llu clock cycles\t %.9Lf seconds\n", job_end_clocks,
-             job_end);
-ologf(benchmark_verbosity,"job deadline: %llu clock cycles\t %.9Lf seconds \t-\tdeadline "
-             "status:%d (%d=met)\n",
-             deadline_clocks, deadline, deadline_status, DEADLINE_MET);
-ologf(benchmark_verbosity,"job duration: %llu clock cycles\t %.9Lf "
-             "seconds\t-\tutilization:%.3g\t-\tdensity:%.3g\n\n",
-             elapsed_clocks, elapsed, u, d);
+      ologf(benchmark_verbosity, "\nJob completed\n");
+      ologf(benchmark_verbosity,
+            "period start: %llu clock cycles\t %.9Lf seconds \t-\t period "
+            "end: %llu clock cycles\t %.9Lf seconds\n",
+            period_start_clocks, period_start, period_end_clocks, period_end);
+      ologf(benchmark_verbosity, "job end: %llu clock cycles\t %.9Lf seconds\n",
+            job_end_clocks, job_end);
+      ologf(benchmark_verbosity,
+            "job deadline: %llu clock cycles\t %.9Lf seconds \t-\tdeadline "
+            "status:%d (%d=met)\n",
+            deadline_clocks, deadline, deadline_status, DEADLINE_MET);
+      ologf(benchmark_verbosity,
+            "job duration: %llu clock cycles\t %.9Lf "
+            "seconds\t-\tutilization:%.3g\t-\tdensity:%.3g\n\n",
+            elapsed_clocks, elapsed, u, d);
     } else {
       if (deadline != 0 || deadline_clocks != 0) {
-ologf(benchmark_verbosity,"\n\t Deadline %llu (%.9Lf) skipped\n\n", deadline_clocks,
-               deadline);
+        ologf(benchmark_verbosity, "\n\t Deadline %llu (%.9Lf) skipped\n\n",
+              deadline_clocks, deadline);
       }
       if (period_start != 0 || period_start_clocks != 0) {
-ologf(benchmark_verbosity,"\n\t Period %llu (%.9Lf) skipped\n\n", period_start_clocks,
-               period_start);
+        ologf(benchmark_verbosity, "\n\t Period %llu (%.9Lf) skipped\n\n",
+              period_start_clocks, period_start);
       }
     }
     break;
@@ -169,11 +176,11 @@ ologf(benchmark_verbosity,"\n\t Period %llu (%.9Lf) skipped\n\n", period_start_c
         deadline_status, u, d);
     break;
   case LOG_LEVEL_INFO:
-ologf(LOG_LEVEL_INFO,
-        "%llu,%llu,%llu,%llu,%llu,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%d,%.3g,%.3g",
-        period_start_clocks, period_end_clocks, job_end_clocks, deadline_clocks,
-        elapsed_clocks, period_start, period_end, job_end, deadline, elapsed,
-        deadline_status, u, d);
+    ologf(LOG_LEVEL_INFO,
+          "%llu,%llu,%llu,%llu,%llu,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%d,%.3g,%.3g",
+          period_start_clocks, period_end_clocks, job_end_clocks,
+          deadline_clocks, elapsed_clocks, period_start, period_end, job_end,
+          deadline, elapsed, deadline_status, u, d);
     break;
   case LOG_LEVEL_ERR:
   case LOG_LEVEL_MIN:
@@ -200,18 +207,21 @@ void print_performance_counters(
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
-ologf(benchmark_verbosity,"\nLevel 1 Data cache\n");
-ologf(benchmark_verbosity,"L1-D references/accesses: %lu\n", job_l1_ref);
-ologf(benchmark_verbosity,"L1-D refills/misses: %lu\n", job_l1_miss);
-ologf(benchmark_verbosity,"L1-D miss ratio (accesses/misses): %f%%\n", job_l1_miss_ratio);
-ologf(benchmark_verbosity,"\nLevel 2 Data cache\n");
-ologf(benchmark_verbosity,"L2 references/accesses: %lu\n", job_l2_ref);
-ologf(benchmark_verbosity,"L2 refills/misses: %lu\n", job_l2_miss);
-ologf(benchmark_verbosity,"L2 miss ratio (accesses/misses): %f%%\n", job_l2_miss_ratio);
-ologf(benchmark_verbosity,"\nCPU\n");
-ologf(benchmark_verbosity,"Instruction retired (i.e., executed in hardware): %lu\n",
-           job_inst_retired);
-ologf(benchmark_verbosity,"CPU clock-cycles: %lu\n", job_clock_count);
+    ologf(benchmark_verbosity, "\nLevel 1 Data cache\n");
+    ologf(benchmark_verbosity, "L1-D references/accesses: %lu\n", job_l1_ref);
+    ologf(benchmark_verbosity, "L1-D refills/misses: %lu\n", job_l1_miss);
+    ologf(benchmark_verbosity, "L1-D miss ratio (accesses/misses): %f%%\n",
+          job_l1_miss_ratio);
+    ologf(benchmark_verbosity, "\nLevel 2 Data cache\n");
+    ologf(benchmark_verbosity, "L2 references/accesses: %lu\n", job_l2_ref);
+    ologf(benchmark_verbosity, "L2 refills/misses: %lu\n", job_l2_miss);
+    ologf(benchmark_verbosity, "L2 miss ratio (accesses/misses): %f%%\n",
+          job_l2_miss_ratio);
+    ologf(benchmark_verbosity, "\nCPU\n");
+    ologf(benchmark_verbosity,
+          "Instruction retired (i.e., executed in hardware): %lu\n",
+          job_inst_retired);
+    ologf(benchmark_verbosity, "CPU clock-cycles: %lu\n", job_clock_count);
     break;
   case LOG_LEVEL_FILE:
     fprintf(file, ",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
@@ -219,9 +229,9 @@ ologf(benchmark_verbosity,"CPU clock-cycles: %lu\n", job_clock_count);
             job_inst_retired, job_clock_count);
     break;
   case LOG_LEVEL_INFO:
-ologf(LOG_LEVEL_INFO,",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
-           job_l1_miss_ratio, job_l2_ref, job_l2_miss, job_l2_miss_ratio,
-           job_inst_retired, job_clock_count);
+    ologf(LOG_LEVEL_INFO, ",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref,
+          job_l1_miss, job_l1_miss_ratio, job_l2_ref, job_l2_miss,
+          job_l2_miss_ratio, job_inst_retired, job_clock_count);
     break;
   case LOG_LEVEL_ERR:
   case LOG_LEVEL_MIN:
@@ -229,8 +239,7 @@ ologf(LOG_LEVEL_INFO,",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
   }
 }
 
-/** @brief Print extra data for benchmarks that have the EXTENDED_REPORT macro
- * defined.
+/** @brief Print extra data for benchmarks that have extra metrics.
  * @param[in] file The output file where the extra data will be printed.
  */
 void print_extra_data(FILE *file) {
@@ -240,11 +249,12 @@ void print_extra_data(FILE *file) {
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     // print the the header extra metrics but skip the first comma
-    ologf(benchmark_verbosity,"Extra metrics:\n%s\n", extra_measurement.header + 1);
+    ologf(benchmark_verbosity, "Extra metrics:\n%s\n",
+          extra_measurement.header + 1);
     for (i = 0; i < extra_measurement.num_elements; i++) {
-      ologf(benchmark_verbosity,"%lf ", extra_measurement.data[i]);
+      ologf(benchmark_verbosity, "%lf ", extra_measurement.data[i]);
     }
-    ologf(benchmark_verbosity,"\n");
+    ologf(benchmark_verbosity, "\n");
     break;
   case LOG_LEVEL_FILE:
     for (i = 0; i < extra_measurement.num_elements; i++) {
@@ -253,7 +263,7 @@ void print_extra_data(FILE *file) {
     break;
   case LOG_LEVEL_INFO:
     for (i = 0; i < extra_measurement.num_elements; i++) {
-      ologf(LOG_LEVEL_INFO,",%lf", extra_measurement.data[i]);
+      ologf(LOG_LEVEL_INFO, ",%lf", extra_measurement.data[i]);
     }
     break;
   case LOG_LEVEL_ERR:
@@ -284,18 +294,16 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
       l2_ref_end, l2_miss_end, inst_retired_end, clock_count_end);
 #endif
 
-#ifdef EXTENDED_REPORT
   if (extra_measurement.status == EXTRA_MEASUREMENT_VALID) {
     print_extra_data(file);
   }
-#endif
 
   switch (benchmark_verbosity) {
   case LOG_LEVEL_FILE:
     fprintf(file, "\n");
     break;
   case LOG_LEVEL_INFO:
-ologf(LOG_LEVEL_INFO,"\n");
+    ologf(LOG_LEVEL_INFO, "\n");
     break;
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
@@ -343,20 +351,24 @@ FILE *open_output_file(char *default_filename, char *filename_prefix,
   return filep;
 }
 
+void init_log_file_path(char *path) { log_filep_path = path; }
+
+inline char *get_log_file_path(void) { return log_filep_path; }
+
 /** @details
- * Creates a new log file or append to an already existing one, according to the
- * given filename. After the file has been opened/created the timestamp (in ISO
+ * Creates a new log file or append to an already existing one, according to
+ * log_filep_path. After the file has been opened/created the timestamp (in ISO
  * 8601) of the current tun will be written.
  * */
-FILE *open_log_file(char *filename) {
-  FILE *bmark_output =
-      open_output_file(DEFAULT_LOG_OUTPUT_PATH, filename, ".log", "a");
+FILE *open_log_file() {
+  FILE *bmark_output = open_output_file(DEFAULT_LOG_OUTPUT_PATH,
+                                        get_log_file_path(), ".log", "a");
   if (bmark_output != NULL) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
-    fprintf(bmark_output,
-          "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
-          tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    fprintf(bmark_output, "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n",
+            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min,
+            tm.tm_sec);
   }
   return bmark_output;
 }
@@ -372,3 +384,7 @@ int close_output_file(FILE *file) {
   }
   return res;
 }
+
+// weakly define benchmark_log_data, so we do not need to conditionally enable
+// the extended report features
+void __attribute__((weak)) benchmark_log_data() {}
