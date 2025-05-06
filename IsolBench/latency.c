@@ -113,11 +113,11 @@ uint64_t get_elapsed(struct timespec *start, struct timespec *end) {
 
 /// @brief Print usage info.
 void usage(int argc, char *argv[]) {
-  printf("Usage: $ %s [<option>]*\n\n", argv[0]);
-  printf("-m: memory size in KB. deafult=%d\n", DEFAULT_ALLOC_SIZE_KB);
-  printf("-s: turn on the serial access mode\n");
-  printf("-i: iterations. default=%d\n", DEFAULT_ITER);
-  printf("-h: help\n");
+  ologf(LOG_LEVEL_INFO,"Usage: $ %s [<option>]*\n\n", argv[0]);
+  ologf(LOG_LEVEL_INFO,"-m: memory size in KB. deafult=%d\n", DEFAULT_ALLOC_SIZE_KB);
+  ologf(LOG_LEVEL_INFO,"-s: turn on the serial access mode\n");
+  ologf(LOG_LEVEL_INFO,"-i: iterations. default=%d\n", DEFAULT_ITER);
+  ologf(LOG_LEVEL_INFO,"-h: help\n");
   exit(1);
 }
 

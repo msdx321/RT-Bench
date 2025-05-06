@@ -1,23 +1,19 @@
-#include "periodic_benchmark.h"
-#include "sched_attr.h"
-
-#include <argp.h>
-#include <errno.h>
-#include <fenv.h>
-#include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-
 #include "logging.h"
 #include "optional_features.h"
+#include "periodic_benchmark.h"
 #include "synch_release.h"
-
+#include "sched_attr.h"
+#include <argp.h>
+#include <errno.h>
+#include <fenv.h>
+#include <math.h>
 #include <sched.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Warnings for the optional features that might be troublesome
 #ifndef SCHED_DEADLINE_SUPPORT
@@ -515,18 +511,8 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
     break;
 #endif
   case ARGP_KEY_END:
-    if (parsed_args->period_sec == 0 && parsed_args->period_nsec == 0)
-      elogf(LOG_LEVEL_INFO, "Using continuous execution model, benchmark will "
-                            "be restarted as soon as it completes.\n");
     if (parsed_args->parsed_deadline > parsed_args->parsed_period) {
       argp_error(state, "Deadlines longer than period are not supported.");
-    }
-    if (parsed_args->parsed_deadline == 0 && parsed_args->parsed_period > 0) {
-      elogf(LOG_LEVEL_INFO, "Unspecified deadline value, deadline will be "
-                            "assumed to be same as period.\n");
-      parsed_args->parsed_deadline = parsed_args->parsed_period;
-      parsed_args->deadline_sec = parsed_args->period_sec;
-      parsed_args->deadline_nsec = parsed_args->period_nsec;
     }
     if ((parsed_args->prio != 100) &&
         ((parsed_args->period > 0) || (parsed_args->deadline > 0) ||
@@ -583,7 +569,6 @@ static int parse_opt(int key, char *arg, struct argp_state *state) {
 int main(int argc, char **argv) {
   int res = 0, i;
   struct execution_options parsed_args = {0};
-
   // argp variables
   const char *argp_doc =
       "Run a benchmark periodically, trying to meet the given deadline.";
@@ -639,7 +624,7 @@ int main(int argc, char **argv) {
        "other instances in the same group. The benchmarks in the group will "
        "then "
        "start at a common absolute timestamp. Default name for the group is "
-       "'" SYNCH_GRP_DEFAULT_NAME
+       "'"SYNCH_GRP_DEFAULT_NAME
        "' The user need to put extra care in choosing a unique name "
        "for each experiment group when there are more than one.\n "
        "If the benchmarks terminate without a call to `exit`, the named "
@@ -714,6 +699,28 @@ int main(int argc, char **argv) {
   if (res != 0) {
     perror("Error during argument parsing");
     return EXIT_FAILURE;
+  }
+
+#if defined FEAT_BMARK_LOG_FILE_SUPPORT &&                                     \
+    FEAT_BMARK_LOG_FILE_SUPPORT == OPT_FEAT_ENABLED
+  if (benchmark_verbosity > LOG_LEVEL_ERR) {
+    log_filep = open_log_file(parsed_args.output_path);
+    elogf(LOG_LEVEL_TRACE, "Opened Log file\n");
+    if (log_filep == NULL) {
+      perror("Error during log file setup\n");
+      return -1;
+    }
+  }
+#endif
+  if (parsed_args.period_sec == 0 && parsed_args.period_nsec == 0)
+    elogf(LOG_LEVEL_INFO, "Using continuous execution model, benchmark will "
+                          "be restarted as soon as it completes.\n");
+  if (parsed_args.parsed_deadline == 0 && parsed_args.parsed_period > 0) {
+    elogf(LOG_LEVEL_INFO, "Unspecified deadline value, deadline will be "
+                          "assumed to be same as period.\n");
+    parsed_args.parsed_deadline = parsed_args.parsed_period;
+    parsed_args.deadline_sec = parsed_args.period_sec;
+    parsed_args.deadline_nsec = parsed_args.period_nsec;
   }
 
   elogf(LOG_LEVEL_TRACE, "parsed arguments:\n");

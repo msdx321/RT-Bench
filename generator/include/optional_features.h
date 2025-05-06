@@ -36,7 +36,7 @@
 #endif
 
 // tell the user if they are using the extended report version
-#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                           \
+#if (defined FEAT_EXTENDED_REPORT_SUPPORT &&                                   \
      FEAT_EXTENDED_REPORT_SUPPORT == OPT_FEAT_ENABLED)
 #define EXTENDED_REPORT
 #endif
@@ -60,5 +60,35 @@
     FEAT_PRINT_SKIPPED_DEADLINE_SUPPORT == OPT_FEAT_ENABLED
 /// Indicates whether to print skipped deadelines with 0s.
 #define PRINT_SKIPPED_DEADLINE
+#endif
+
+#if FEAT_MEM_WATCHER_ALIGN == OPT_FEAT_ENABLED && MEM_WATCHER_ALIGN != 1
+#include <stdint.h>
+#if MEM_WATCHER_ALIGN == 1
+typedef char mem_watcher_address_t;
+#elif MEM_WATCHER_ALIGN == 8
+typedef uint8_t mem_watcher_address_t;
+#elif MEM_WATCHER_ALIGN == 16
+typedef uint16_t mem_watcher_address_t;
+#else
+#error "Alignment of "MEM_WATCHER_ALIGN" for the memory watcher is unsupported. Supported alignments for memory watcher are: 1, 8, 16, 32 and 64 bytes"
+#endif
+#else
+typedef void mem_watcher_address_t;
+#endif
+
+#endif
+
+/// Enable the log file if the user wants to redirect the debug messages there
+#if defined FEAT_DEBUG_FILE && FEAT_DEBUG_FILE == OPT_FEAT_ENABLED
+#define DEBUG_FILE
+// enable log file support
+#ifndef FEAT_BMARK_LOG_FILE_SUPPORT
+#define FEAT_BMARK_LOG_FILE_SUPPORT OPT_FEAT_ENABLED
+#else
+// if log file support was disabled by the user we have a problem
+#if FEAT_BMARK_LOG_FILE_SUPPORT != OPT_FEAT_ENABLED
+#error "User requested to redirect debug output to debug file and disabled the usage of debug file"
+#endif
 #endif
 #endif

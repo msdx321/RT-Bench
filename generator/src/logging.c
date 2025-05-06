@@ -5,6 +5,7 @@
  */
 
 #include "logging.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -133,25 +134,25 @@ void print_timing(FILE *file, unsigned long long period_start_clocks,
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
     if (job_end != 0) {
-      printf("\nJob completed\n");
-      printf("period start: %llu clock cycles\t %.9Lf seconds \t-\t period "
+ologf(benchmark_verbosity,"\nJob completed\n");
+ologf(benchmark_verbosity,"period start: %llu clock cycles\t %.9Lf seconds \t-\t period "
              "end: %llu clock cycles\t %.9Lf seconds\n",
              period_start_clocks, period_start, period_end_clocks, period_end);
-      printf("job end: %llu clock cycles\t %.9Lf seconds\n", job_end_clocks,
+ologf(benchmark_verbosity,"job end: %llu clock cycles\t %.9Lf seconds\n", job_end_clocks,
              job_end);
-      printf("job deadline: %llu clock cycles\t %.9Lf seconds \t-\tdeadline "
+ologf(benchmark_verbosity,"job deadline: %llu clock cycles\t %.9Lf seconds \t-\tdeadline "
              "status:%d (%d=met)\n",
              deadline_clocks, deadline, deadline_status, DEADLINE_MET);
-      printf("job duration: %llu clock cycles\t %.9Lf "
+ologf(benchmark_verbosity,"job duration: %llu clock cycles\t %.9Lf "
              "seconds\t-\tutilization:%.3g\t-\tdensity:%.3g\n\n",
              elapsed_clocks, elapsed, u, d);
     } else {
       if (deadline != 0 || deadline_clocks != 0) {
-        printf("\n\t Deadline %llu (%.9Lf) skipped\n\n", deadline_clocks,
+ologf(benchmark_verbosity,"\n\t Deadline %llu (%.9Lf) skipped\n\n", deadline_clocks,
                deadline);
       }
       if (period_start != 0 || period_start_clocks != 0) {
-        printf("\n\t Period %llu (%.9Lf) skipped\n\n", period_start_clocks,
+ologf(benchmark_verbosity,"\n\t Period %llu (%.9Lf) skipped\n\n", period_start_clocks,
                period_start);
       }
     }
@@ -165,7 +166,7 @@ void print_timing(FILE *file, unsigned long long period_start_clocks,
         deadline_status, u, d);
     break;
   case LOG_LEVEL_INFO:
-    printf(
+ologf(LOG_LEVEL_INFO,
         "%llu,%llu,%llu,%llu,%llu,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%.9Lf,%d,%.3g,%.3g",
         period_start_clocks, period_end_clocks, job_end_clocks, deadline_clocks,
         elapsed_clocks, period_start, period_end, job_end, deadline, elapsed,
@@ -196,18 +197,18 @@ void print_performance_counters(
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
-    printf("\nLevel 1 Data cache\n");
-    printf("L1-D references/accesses: %lu\n", job_l1_ref);
-    printf("L1-D refills/misses: %lu\n", job_l1_miss);
-    printf("L1-D miss ratio (accesses/misses): %f%%\n", job_l1_miss_ratio);
-    printf("\nLevel 2 Data cache\n");
-    printf("L2 references/accesses: %lu\n", job_l2_ref);
-    printf("L2 refills/misses: %lu\n", job_l2_miss);
-    printf("L2 miss ratio (accesses/misses): %f%%\n", job_l2_miss_ratio);
-    printf("\nCPU\n");
-    printf("Instruction retired (i.e., executed in hardware): %lu\n",
+ologf(benchmark_verbosity,"\nLevel 1 Data cache\n");
+ologf(benchmark_verbosity,"L1-D references/accesses: %lu\n", job_l1_ref);
+ologf(benchmark_verbosity,"L1-D refills/misses: %lu\n", job_l1_miss);
+ologf(benchmark_verbosity,"L1-D miss ratio (accesses/misses): %f%%\n", job_l1_miss_ratio);
+ologf(benchmark_verbosity,"\nLevel 2 Data cache\n");
+ologf(benchmark_verbosity,"L2 references/accesses: %lu\n", job_l2_ref);
+ologf(benchmark_verbosity,"L2 refills/misses: %lu\n", job_l2_miss);
+ologf(benchmark_verbosity,"L2 miss ratio (accesses/misses): %f%%\n", job_l2_miss_ratio);
+ologf(benchmark_verbosity,"\nCPU\n");
+ologf(benchmark_verbosity,"Instruction retired (i.e., executed in hardware): %lu\n",
            job_inst_retired);
-    printf("CPU clock-cycles: %lu\n", job_clock_count);
+ologf(benchmark_verbosity,"CPU clock-cycles: %lu\n", job_clock_count);
     break;
   case LOG_LEVEL_FILE:
     fprintf(file, ",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
@@ -215,7 +216,7 @@ void print_performance_counters(
             job_inst_retired, job_clock_count);
     break;
   case LOG_LEVEL_INFO:
-    printf(",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
+ologf(LOG_LEVEL_INFO,",%lu,%lu,%f,%lu,%lu,%f,%lu,%lu", job_l1_ref, job_l1_miss,
            job_l1_miss_ratio, job_l2_ref, job_l2_miss, job_l2_miss_ratio,
            job_inst_retired, job_clock_count);
     break;
@@ -230,13 +231,13 @@ void print_extra_data(FILE *file, float extra_measurement) {
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
-    printf("Extra benchmark metric: %f\n", extra_measurement);
+ologf(benchmark_verbosity,"Extra benchmark metric: %f\n", extra_measurement);
     break;
   case LOG_LEVEL_FILE:
     fprintf(file, ",%f", extra_measurement);
     break;
   case LOG_LEVEL_INFO:
-    printf(",%f", extra_measurement);
+ologf(LOG_LEVEL_INFO,",%f", extra_measurement);
     break;
   case LOG_LEVEL_ERR:
   case LOG_LEVEL_MIN:
@@ -275,7 +276,7 @@ void print_statistics(FILE *file, unsigned long long period_start_clocks,
     fprintf(file, "\n");
     break;
   case LOG_LEVEL_INFO:
-    printf("\n");
+ologf(LOG_LEVEL_INFO,"\n");
     break;
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
@@ -334,7 +335,7 @@ FILE *open_log_file(char *filename) {
   if (bmark_output != NULL) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
-    flogf(LOG_LEVEL_FILE, bmark_output,
+    fprintf(bmark_output,
           "\n\tNEW RUN AT: %d-%02d-%02dT-%02d:%02d:%02d\n", tm.tm_year + 1900,
           tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
   }

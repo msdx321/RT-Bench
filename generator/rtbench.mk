@@ -21,7 +21,7 @@ RTBENCH_SRC_FLDR=$(RTBENCH_GENERATOR_DIR)/src
 override CFLAGS+=-O2 -Wall -g -I$(RTBENCH_H_FLDR) -DGCC
 
 # Add linker's flags
-override LDFLAGS+=-lrt -lm -pthread -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap -Wl,--wrap=sbrk -Wl,--no-as-needed
+override LDFLAGS+=-lrt -lm -pthread  -Wl,--wrap=free -Wl,--wrap=malloc -Wl,--wrap=mmap
 
 #optional features
 
@@ -112,6 +112,12 @@ ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_BMARK_LOG_FILE)),$(FEAT_ENABLED))
  override CFLAGS+=-DFEAT_BMARK_LOG_FILE_SUPPORT=$(MACRO_FEAT_ENABLED)
 endif
 
+# Check if extended report is desired
+ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_DEBUG_FILE)),$(FEAT_ENABLED))
+ $(info Benchmark debug logs to file are enabled)
+ override CFLAGS+=-DFEAT_DEBUG_FILE=$(MACRO_FEAT_ENABLED)
+endif
+
 ifeq ($(subst 1,$(FEAT_ENABLED),$(FEAT_GCC_STATIC)),$(FEAT_ENABLED))
  ifeq ($(FEAT_STATICX),$(FEAT_ENABLED))
   $(error Gcc static compilation and staticx are mutually exclusive, please disable one of them)
@@ -153,6 +159,22 @@ ifndef SYNCH_DELAY_REL_SEC
  $(info Initial synch delay set to $(SYNCH_DELAY_REL_SEC) seconds and $(SYNCH_DELAY_REL_NSEC) nanoseconds)
 endif
  override CFLAGS+=-DSYNCH_DELAY_REL_NSEC=$(SYNCH_DELAY_REL_NSEC)
+endif
+
+# set custom alignment for the memory watcher, to support memory that is not byte addressable
+ifeq ($(subst 1, $(FEAT_EANBLED),$(FEAT_MEM_WATCHER_ALIGN)),$(FEAT_ENABLED))
+ifeq ($(MEM_WATCHER_ALIGN),1)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=1U
+else ifeq ($(MEM_WATCHER_ALIGN),8)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=8U
+else ifeq ($(MEM_WATCHER_ALIGN),16)
+DLMALLOC_ALIGN=-DMALLOC_ALIGNMENT=16U
+else
+$(error alignment of $(MEM_WATCHER_ALIGN) is not supported, only 1, 8 and 16 are supported)
+endif
+override CFLAGS+=-fpack-struct=$(MEM_WATCHER_ALIGN)
+override CFLAGS+=-DFEAT_MEM_WATCHER_ALIGN=$(MACRO_FEAT_ENABLED)
+override CFLAGS+=-DMEM_WATCHER_ALIGN=$(MEM_WATCHER_ALIGN)
 endif
 
 CXXFLAGS:=$(CFLAGS)
@@ -206,12 +228,13 @@ $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c:
 
 $(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk
 	@echo "setting up dlmalloc"
-	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE sbrk/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
+	sed -i 's/\(extern void \*\)mbed_sbrk/\1rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
+	sed -E -i 's/#define MORECORE [^[:space:]]+/#define MORECORE rtbench_sbrk/' $(SOURCE)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define MORECORE_CONTIGUOUS [01]/#define MORECORE_CONTIGUOUS 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MORECORE [01]/#define HAVE_MORECORE 1/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MMAP [01]/#define HAVE_MMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 	sed -i 's/#define HAVE_MREMAP [01]/#define HAVE_MREMAP 0/' $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(DLMALLOC_ALIGN) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 $(RTBENCH_OBJ_FLDR)/main.o: $(RTBENCH_SRC_FLDR)/main.c  $(RTBENCH_H) $(PROJ_ROOT)/options.mk
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
