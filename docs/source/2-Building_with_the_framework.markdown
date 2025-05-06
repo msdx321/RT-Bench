@@ -168,7 +168,7 @@ automatically opened before the benchmark initialization and closed when the exe
 
 #### Redirect all output to log file
 
-Independently from the logging level expressed with the `-l` CLI option, it is
+Independently from the logging level expressed with the `-l` [CLI option](@ref synch-start-cli), it is
 also possible to redirect all output to the extra log file by specifying
 `FEAT_DEBUG_FILE=y`. The same effect can be achieved compiling with
 `-DFEAT_DEBUG_FILE=1`
@@ -297,7 +297,7 @@ compiling with `-fpack-struct=<alignment>`, `-DFEAT_MEM_WATCHER_ALIGN=1` and
 
 This optional feature will use the `-fpack-struct` GCC option and change the
 alignment of the memory watcher allocation function `dlmalloc`, used when the
-heap is migrated with the `-H` CLI option.
+heap is migrated with the `-H` [CLI option](@ref synch-start-cli).
 
 `MEM_WATCHER_ALIGN` supports only the following alignments:
 - `1` byte
