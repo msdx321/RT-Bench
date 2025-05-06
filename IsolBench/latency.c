@@ -89,7 +89,7 @@ int repeat = DEFAULT_ITER;
 int workingset_size = 1024;
 /// Sum of the amount of read data.
 uint64_t readsum = 0;
-/// Average measured latency
+/// Average measured latency repotred as an extra measurement
 double avglat;
 /**************************************************************************
  * Public Function Prototypes
@@ -203,8 +203,8 @@ int benchmark_init(int parameters_num, void **parameters) {
   free(perm);
   // setup extra measurement struct
   extra_measurement.num_elements = 1;
-  extra_measurement.header = ",latency(ns)";
-  extra_measurement.data = malloc(sizeof(double));
+  extra_measurement.header = "latency(ns)";
+  extra_measurement.data = &avglat;
   if (extra_measurement.data == NULL) {
     elogf(LOG_LEVEL_ERR, "Cannot allocate memory for extra measurement\n");
     return -1;
@@ -223,7 +223,6 @@ int benchmark_init(int parameters_num, void **parameters) {
  * latency.
  */
 void benchmark_execution(int parameters_num, void **parameters) {
-  uint64_t nsdiff;
   int j;
   struct list_head *pos;
   int i;
@@ -238,19 +237,16 @@ void benchmark_execution(int parameters_num, void **parameters) {
     }
   }
   clock_gettime(CLOCK_REALTIME, &end);
-
-  nsdiff = get_elapsed(&start, &end);
-  avglat = (double)nsdiff / workingset_size / repeat;
 }
 
 /**
- * @brief This handler returns the latency as the extra measurement.
+ * @brief This handler computes the memory latency as an extra measurement.
  * @details
- * This function returns the experienced latency (ns) as a float after
- * each execution phase.
  */
 void benchmark_log_data(void) {
-  *extra_measurement.data = (double)avglat;
+  uint64_t nsdiff;
+  nsdiff = get_elapsed(&start, &end);
+  *extra_measurement.data = (double)nsdiff / workingset_size / repeat;
   extra_measurement.status = EXTRA_MEASUREMENT_VALID;
 }
 
@@ -263,9 +259,6 @@ void benchmark_log_data(void) {
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
   uint64_t nsdiff;
-  if (extra_measurement.data != NULL) {
-    free(extra_measurement.data);
-  }
   if (repeat == 0) {
     clock_gettime(CLOCK_REALTIME, &end);
 

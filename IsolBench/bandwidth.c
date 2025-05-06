@@ -78,6 +78,8 @@ int acc_type = READ;
 int iterations = 5;
 /// sum of the amount of read/written memory.
 int64_t sum = 0;
+/// The computed memory bandwidth reported as an extra measurement
+double bandwidth=0;
 /**************************************************************************
  * Public Functions
  **************************************************************************/
@@ -229,12 +231,8 @@ int benchmark_init(int parameters_num, void **parameters) {
 
   // setup extra measurement struct
   extra_measurement.num_elements = 1;
-  extra_measurement.header = ",bandwidth(MB/S)";
-  extra_measurement.data = malloc(sizeof(double));
-  if (extra_measurement.data == NULL) {
-    elogf(LOG_LEVEL_ERR, "Cannot allocate memory for extra measurement\n");
-    return -1;
-  }
+  extra_measurement.header = "bandwidth(MB/S)";
+  extra_measurement.data = &bandwidth;
 
   /* print experiment info before starting */
   flogf(LOG_LEVEL_FILE, log_filep, "memsize=%d KB, type=%s\n",
@@ -296,9 +294,6 @@ void benchmark_log_data(void) {
  * @details It will free `::g_mem_ptr`.
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
-  if (extra_measurement.data != NULL) {
-    free(extra_measurement.data);
-  }
   if (g_mem_ptr != NULL) {
     free(g_mem_ptr);
   }

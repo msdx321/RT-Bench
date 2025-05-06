@@ -492,7 +492,7 @@ int benchmark_init(int parameters_num, void **parameters) {
          sizeof(double) * extra_measurement.num_elements);
   elogf(LOG_LEVEL_DEBUG, "initialized data\n");
   // create the extra measurements header
-  res = asprintf(&extra_measurement.header, ",total bandwidth(MB/S)");
+  res = asprintf(&extra_measurement.header, "total bandwidth(MB/S)");
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot allocate memory for extra log header: %s\n",
           strerror(errno));

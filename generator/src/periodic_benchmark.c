@@ -494,7 +494,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
 #endif
     // print the extra measurement header if it exists
     if (extra_measurement.header != NULL) {
-      fprintf(filep, "%s", extra_measurement.header);
+      fprintf(filep, ",%s", extra_measurement.header);
     }
     fprintf(filep, "\n");
     if (exec_opts->output_path != NULL) {

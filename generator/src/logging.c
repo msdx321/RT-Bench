@@ -248,9 +248,8 @@ void print_extra_data(FILE *file) {
   case LOG_LEVEL_MAX:
   case LOG_LEVEL_DEBUG:
   case LOG_LEVEL_TRACE:
-    // print the the header extra metrics but skip the first comma
     ologf(benchmark_verbosity, "Extra metrics:\n%s\n",
-          extra_measurement.header + 1);
+          extra_measurement.header);
     for (i = 0; i < extra_measurement.num_elements; i++) {
       ologf(benchmark_verbosity, "%lf ", extra_measurement.data[i]);
     }
@@ -387,4 +386,4 @@ int close_output_file(FILE *file) {
 
 // weakly define benchmark_log_data, so we do not need to conditionally enable
 // the extended report features
-void __attribute__((weak)) benchmark_log_data() {}
+void __attribute__((weak)) benchmark_log_data(void) {}

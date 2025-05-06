@@ -180,17 +180,22 @@ When adding and integrating new benchmark in an existing benchmark set the follo
   ```
 
 6. _Optionally_, the benchmark can extend the report interface to report custom metrics.
-	- The `perioic_benchmark.h` exposes a `struct benchmark_extra_data extra_measurement` that needs to be initialized with a csv header that starts with the comma (`,`) character, the number of extra measurements and a data array of to hold extra metrics.
-	Initializing these members is the responsibility of `benchmark_init()` and deallocation, if needed, is responsibility of `benchmark_teardown()`.
-	- The benchmark needs also to expose the following function:
-    ```{.c}
-    void benchmark_log_data(void)
-    ```
-	  Which has to update the data array with the benchmark-specific measurement and change the status of the measurement to `EXTRA_MEASUREMENT_VALID`. This function will be called at the end of every task.
+  - The `logging.h` exposes a `struct benchmark_extra_data extra_measurement` that needs to be initialized with:
+     - a csv header that does not starts with a comma (`,`) character
+     - the number of extra measurements
+     - a data array of to hold extra metrics.
+
+    Initializing these members is the responsibility of `benchmark_init()` and deallocation, if needed, is responsibility of `benchmark_teardown()`.
+  - The benchmark needs also to expose the following function:
+  ```{.c}
+  void benchmark_log_data(void)
+  ```
+    Which has to update the data array with the benchmark-specific measurement and change the status of the measurement to `EXTRA_MEASUREMENT_VALID`. This function will be called at the end of every task.
 
 Refer to the [disparity](@ref #disparity) benchmark documentation and source code for a working example without extra metrics.
 An The [IsolBench](@ref #IsolBench) suite has benchmarks that report extra metrics and can be referred to as working examples.
 
+**NOTE:** Excessive logging of extra metrics will impact the ability of RT-Bench to do the reporting tasks between periods, possibly leading to missed deadlines.
 
 ## Add scripts and utilities
 
