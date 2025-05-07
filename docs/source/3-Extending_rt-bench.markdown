@@ -105,13 +105,22 @@ EXCLUDE = ../config \
 ```
 
 **NOTE**: When editing the Doxyfile, paths are relative to the Doxyfile location!
+
 ### Updating a benchmark set submodule
 
-Changes in an RT-Bench submodule are not detected automatically to prevent the submodule breaking when breaking changes are introduced and to make te commit history of RT-Bench always deployable.
-Whenever a submodule is updated and it is judeged compatible to the current version of RT-Bench it is necessary to update the submodule reference SHA-1.
+Changes in an RT-Bench submodule are not detected automatically to prevent the submodule breaking when breaking changes are introduced and to make the commit history of RT-Bench always deployable.
+Whenever a submodule is updated and it is judged compatible to the current version of RT-Bench it is necessary to update the submodule reference SHA-1.
 A quick way to do this is by adding the submodule folder to the repo, committing and pushing the changes.
 
 ## Add a new benchmark in an existing set {#new-bmark}
+
+RT-Bench was designed for single-threaded benchmarks and has a limited support
+for multi-threaded benchmarks. A multi-threaded benchmark follows more or less
+the same procedure for single threaded benchmarks, but with some important
+differences that are highlighted in the corresponding [section](
+#new-bmark-multi).
+
+### Single thread benchmark {#new-bmark-single}
 
 When adding and integrating new benchmark in an existing benchmark set the following steps are needed:
 
@@ -196,6 +205,106 @@ Refer to the [disparity](@ref #disparity) benchmark documentation and source cod
 An The [IsolBench](@ref #IsolBench) suite has benchmarks that report extra metrics and can be referred to as working examples.
 
 **NOTE:** Excessive logging of extra metrics will impact the ability of RT-Bench to do the reporting tasks between periods, possibly leading to missed deadlines.
+
+### Multi-thread benchmark {#new-bmark-multi}
+
+To add a multi-threaded benchmark, the same procedure for the [single-threaded
+benchmark](#new-bmark-single) has to be followed, with some important
+changes listed below.
+
+RT-Bench supports multi-threaded benchmarks in a limited fashion, following the
+following execution logic:
+1. During the benchmark initialization, the benchmarks spawn a set of worker
+  threads, which will execute most of the benchmark logic.
+
+  Including the following header will make all the needed APIs available:
+  ```{.c}
+  #include "periodic.benchmark.h"
+  ```
+
+  The benchmark initialization procedure is the same as the single-threaded benchmark with the only addition that to spawn threads, the `benchmark_init()` must call `create_bench_thread()` like in the following snippet:
+  ```{.c}
+  int benchmark_init(int parameters_num, void **parameters){
+    /* initialization procedure before spawnning a thread */
+    create_bench_thread(pthread_attr,thread_function,thread_arg);
+    /* initialization procedure after spawnning a thread */
+  }
+  ```
+
+  `create_bench_thead()` acts as a wrapper to `pthread_create` to make sure
+  RT-Bench can keep track of the spawned thread and organize the synchronization
+  with the other threads and the main thread by wrapping the given
+  benchmark-specific thread function (`thread_function` in the example). The
+  other arguments are given directly to `pthread_create`.
+
+2. During the execution phase, the benchmark execution main thread, must unlock
+  the worker threads for them to start the benchmark.
+
+  To do so, it is enough to call `main_thread_synch_start()` like in the following snippet, since the function will take care of synchronization with all threads. It is possible to execute code before and after threads are unlocked, but in the latter case, it must be thread safe.
+  ```{.c}
+  void benchmark_execution(int parameters_num, void **parameters){
+    /* prodecures to do at the beginning of every task, before unlocking the threads */
+    main_thread_sync_start();
+    /* From here onwards all the threads are running, so code here must be thread safe */
+    /* function ends in the next snippet! */
+  ```
+3. During the execution phase, while the worker threads are active, the main
+  benchmark thread must wait for them to complete.
+
+  This is possible by calling `main_thread_sync_end()` before returning from `benchmark_execution()`. All threads will then be locked again and waiting for the next task to be released. As before, all code between `main_thread_sync_start()` and `main_thread_sync_end()` must be thread safe, while the are no requirements on the contents of the rest of `benchmark_execution()`.
+  ```{.c}
+    /* function continues from the previous snippet! */
+    /* From here all the threads are running, so code here must be thread safe */
+    main_thread_sync_end();
+    /* prodecures to do at the end of every task, before while the threads wait for the next task */
+  }
+  ```
+4. After all threads complete RT-Bench will perform metrics reporting and a new
+  execution loop can begin.
+
+  Here the benchmark has nothing to do, other than implement
+  `benchmark_log_data()` if needed. Gathering of the extra metrics can be done
+  in both `benchmark_log_data()` and `benchmark_execution()`; however, it should
+  be noted that the elapsed time of`benchmark_execution()` will be reported as
+  the elapsed time of the task.
+5. During the benchmark teardown the benchmark only needs to free the resources
+  allocated during the initialization, RT-Bench will take care of the
+  termination of the worker threads.
+
+  Like in the previous step, the benchmark here has no responsibilities, other
+  than to deallocate all the resources used for the thread working environment.
+  More specifically, RT-Bench will take care of stopping the threads, joining
+  with them and deallocate all the synchronisation resources. It is enough to
+  implement `benchmark_teardown()` like in serial benchmarks.
+6. Whenever there is an error in one of the threads, this can be signaled to RT-Bench and all other threads with the following snippet:
+  ```{.c}
+  set_multithread_status(MULTITHREAD_ERR);
+  ```
+  This will make RT-Bench stop all threads and terminate prematurely with an error code.
+
+`IsolBench/bandwidth-threads.c` has a working example of multi-threaded
+benchmark. which can be taken as an example, even though is slightly complex
+one.
+
+#### Multi-thread benchmarks limitations {#bmark-multi-limits}
+ Multi-threaded benchmarks will suffer from some limitations, due to the nature
+ of RT-Bench main logic and its current state:
+ - The current model of execution for multi-thread benchmarks relies on the
+   benchmark to use the multi-thread APIs in `multithread.h` (as [the multi-thread
+   guide](#new-bmark-multi) describes) to spawn a number of
+   benchmark-specific worker threads, while the main thread gets unlocked only
+   to do reporting and reset variables at the beginning of every task. This
+   logic will make the benchmark slightly slower due to synchronisation
+   operation between the worker threads and the main threads.
+ - The [Memory watcher](@ref memory_watcher.h) is not thread-safe, so it will
+   raise an error every time a memory allocation is performed while in not in
+   serial execution.
+ - The [Performance counters](@ref performance_counters.h) will be enabled only
+   for the main RT-Bench thread, and will possibly miss all the events in the
+   benchmark worker threads.
+ - As for single threaded benchmarks, excessive logging of extra metrics will
+   impact the ability of RT-Bench to do the reporting tasks between periods,
+   possibly leading to missed deadlines.
 
 ## Add scripts and utilities
 

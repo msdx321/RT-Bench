@@ -167,7 +167,8 @@ endif
 CXXFLAGS:=$(CFLAGS)
 
 # Lists of all source files
-RTBENCH_SRC=$(shell find $(RTBENCH_SRC_FLDR) -name '*.c')
+# make sure that dlmalloc is there but only once, so we will automatically fetch the submodule
+RTBENCH_SRC=$(shell find $(RTBENCH_SRC_FLDR) -name '*.c' -not -name 'dlmalloc.c') $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c
 # Lists of all object files
 RTBENCH_O=$(addprefix $(RTBENCH_OBJ_FLDR)/,$(notdir $(RTBENCH_SRC:.c=.o)))
 # Lists of all header files
@@ -211,6 +212,7 @@ $(RTBENCH_OBJ_FLDR): %:
 
 $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c:
 	@echo 'Initialization and fetching of the pinned version of the dlmalloc submodule...'
+	@cd $(PROJ_ROOT)
 	@git submodule update --init --recursive $(RTBENCH_SRC_FLDR)/dlmalloc
 
 $(RTBENCH_OBJ_FLDR)/dlmalloc.o: $(RTBENCH_SRC_FLDR)/dlmalloc/source/dlmalloc.c $(PROJ_ROOT)/options.mk

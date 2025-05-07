@@ -9,10 +9,12 @@
  */
 #ifndef PERIODIC_BENCHMARK_H
 #define PERIODIC_BENCHMARK_H
-#include "logging.h"
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+
+#include "logging.h"
+#include "multithread.h"
 #include "optional_features.h"
 #include <inttypes.h>
 #include <sched.h>

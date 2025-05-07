@@ -17,6 +17,7 @@
 #include "get_cpu_timestamp.h"
 #include "logging.h"
 #include "memory_watcher.h"
+#include "multithread.h"
 #include "performance_counters.h"
 #include "performance_sampler.h"
 #include "signal_utils.h"
@@ -129,6 +130,10 @@ static struct perf_counters job_perf_counters_end;
  */
 static void stop_benchmark(int status, void *arg) {
   int res;
+  if (get_multithread_status() != MULTITHREAD_DISABLED) {
+    elogf(LOG_LEVEL_TRACE, "Stopping benchmark threads\n");
+    destroy_bench_threads();
+  }
   elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
   benchmark_teardown(benchmark_param_num, benchmark_params);
   // we stop the memory watcher
@@ -466,7 +471,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
   res = benchmark_init(benchmark_param_num, benchmark_params);
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Error during job environment initialization");
+    elogf(LOG_LEVEL_ERR, "Error during job environment initialization\n");
     return res;
   }
   // set the extra measurements to be invalid
@@ -563,6 +568,15 @@ int periodic_benchmark(struct execution_options *exec_opts) {
     elogf(LOG_LEVEL_TRACE, "Period timer setup complete\n");
     elogf(LOG_LEVEL_TRACE, "Timers setup complete\n");
   }
+  // if the benchmark has spawned the threads we need to iinitialize the
+  // multithread resources.
+  if (get_multithread_status() == MULTITHREAD_INITIALIZING) {
+    res = main_multithread_init();
+    if (res < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot initialize multithread resources\n");
+      return res;
+    }
+  }
   // since timer will start shortly there are no previous jobs that are
   // executing we get the timestamp of the first period
   // This cycle will proceed infinitely if the user has not set a specific
@@ -570,6 +584,13 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   // launched the specified amount of benchmarks.
   while (tasks_launched < exec_opts->tasks_to_launch ||
          exec_opts->tasks_to_launch == 0) {
+		// terminate early if the multithread status has an error;
+		if(get_multithread_status() == MULTITHREAD_ERR){
+      elogf(
+          LOG_LEVEL_ERR,
+          "Cannot initialize multithread resources due to a previous error\n");
+      return -1;
+    }
     // we wait for the period to finish or for the initial synch delay to be
     // over
     if (exec_opts->period_nsec > 0 || exec_opts->period_sec > 0 ||

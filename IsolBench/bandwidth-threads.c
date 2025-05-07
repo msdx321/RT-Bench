@@ -18,7 +18,7 @@
  *
  * Furhtermore, the benchmark has been reworked to spawn multiple concurrent
  * threads that perform the same operation of the original benchmark.
- * 
+ *
  * **Dependencies**
  *
  * POSIX pthreads
@@ -50,8 +50,6 @@
 #include <unistd.h>
 
 // Libraries used by rt-bench
-#include "logging.h"
-#include "optional_features.h"
 #include "periodic_benchmark.h"
 
 /**************************************************************************
@@ -75,9 +73,6 @@ enum access_type { READ, WRITE };
 /// Type of memory access to perform.
 enum buffer_type { SHARED, PRIVATE };
 
-/// Thread status enum, so threads do not run forever
-enum thread_execution_status { THREAD_DISABLED = 0, THREAD_ENABLED };
-
 /**************************************************************************
  * Global Variables
  **************************************************************************/
@@ -90,41 +85,20 @@ volatile uint64_t g_nread = 0; //< Total number of bytes read
 enum buffer_type buf_type = PRIVATE;
 
 struct thread_status {
-  int id,         ///< The thread id.
-      cpu_id,     ///< CPU where the worker thread is pinned.
+  int cpu_id,     ///< the thread cpu id, for debug purposes
       *t_mem_ptr, ///< Pointer to thre portion of the buffer the thread has to
                   ///< access
       t_mem_size, ///< Thread-local memory size.
       iterations; ///< Number of iterations
-  enum access_type acc_type; ///< Memory access type
-  volatile enum thread_execution_status
-      execution_status;          ///< If the current thread is enabled or not.
+  enum access_type acc_type;     ///< Memory access type
   volatile uint64_t nread;       ///< Number of bytes read per thread
   int64_t sum;                   ///< sum of the amount of read/written memory.
   volatile unsigned int t_start; ///< Task start time.
   volatile unsigned int t_end;   ///< Task end time.
 } *thread_stat = NULL;
 
-/// Array of pthread ids
-pthread_t *pthread_id = NULL;
-
 /// How many threads we are using
 int thread_num = 0;
-
-sem_t worker_mutex,        ///< A mutex to have all worker threads update a
-                           ///< `num_threads_ready` without race conditions.
-    worker_ready_queue,    ///< The queue of worker threads that will need to be
-                           ///< unlocked by the main thread.
-    worker_complete_queue, ///< The queue of worker threads that will need to be
-                           ///< unlocked by the main thread.
-    main_start_mutex, ///< The mutex used by the main thread to wait for all the
-                      ///< worker threads to be ready to start.
-    main_end_mutex;   ///< The mutex used by the main thread to wait for all the
-                      ///< worker threads to have finished the loop.
-int num_threads_ready =
-        0, ///< The number of threads ready to start a new computation loop.
-    num_threads_completed =
-        0; ///< The number of threads that have completed a computation loop.
 
 /**************************************************************************
  * Public Functions
@@ -218,137 +192,47 @@ void usage(int argc, char *argv[]) {
   exit(1);
 }
 
-/** @brief Wait for a semaphore, looping if the wait gets interrupted by a
- * signal.
- * @param[in] sem The saemaphore to use in `sem_wait`.
- * @returns the value returned by the `sem_wait` function.
- */
-static inline int wait_for_sem(sem_t *sem) {
-  int res = 0;
-  do {
-    res = sem_wait(sem);
-  } while (errno == EINTR);
-  return res;
-}
-
 /** @brief The logic all worker threads will execute.
  * @param[in] arg The `struct thread_stat` that holds the local thread status.
  * @details
- * Every thread will perform a renevous with the others then when every thread
- * is ready the last one will wake up the main thread, which will in turn unlock
- * all worker threads.
- *
- * Then all worker threads will perform a memory access as
+ * Will perform a memory access as
  * directed by they local instance of the `struct thread_stat`.
- *
- * At the end of
- * the job, every worker thread will perfrom another rendevous and when every
- * worker is finished, the last worker will wake up main again, then the
- * execution loop will restart.
- *
- * If, after the thread is woken up, the thread was
- * disabled then it will break the execution loop and return.
- * @returns NULL
+ * @returns NULL or `-1` in case of error.
  */
 void *thread_execution(void *arg) {
   if (arg == NULL) {
     elogf(LOG_LEVEL_ERR, "Worker thread has no argument\n");
-    exit(-EXIT_FAILURE);
+    set_multithread_status(MULTITHREAD_ERR);
+    return (void *)-1;
   }
   struct thread_status *local_status = (struct thread_status *)arg;
-  int i = 0, res = 0;
-  while (local_status->execution_status != THREAD_DISABLED) {
-    elogf(LOG_LEVEL_DEBUG, "Worker thread %d starting compute rendevous\n",
-          local_status->id);
-
-    // thread_num + main thread rendevous to start computing
-    res = wait_for_sem(&worker_mutex);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %d cannot wait on worker mutex: %s\n",
-            local_status->id, strerror(errno));
-    }
-    num_threads_ready++;
-    elogf(LOG_LEVEL_DEBUG, "thread %d start sync ready %d complete %d\n",
-          local_status->id, num_threads_ready, num_threads_completed);
-    if (num_threads_ready == thread_num) {
-      num_threads_ready = 0;
-      res = sem_post(&main_start_mutex);
-      if (res < 0) {
-        elogf(LOG_LEVEL_ERR, "Thread %d cannot post on main mutex: %s\n",
-              local_status->id, strerror(errno));
-      }
-    }
-    res = sem_post(&worker_mutex);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %d cannot post on worker mutex: %s\n",
-            local_status->id, strerror(errno));
-    }
-    res = wait_for_sem(&worker_ready_queue);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %d cannot wait on worker ready queue: %s\n",
-            local_status->id, strerror(errno));
-    }
-    if (local_status->execution_status != THREAD_ENABLED) {
+  int i = 0;
+  /*
+   * actual memory access
+   */
+  elogf(LOG_LEVEL_DEBUG, "Thread on cpu %d starting\n", local_status->cpu_id);
+  local_status->t_end = 0;
+  local_status->nread = 0;
+  local_status->t_start = get_usecs();
+  for (i = 0;; i++) {
+    switch (local_status->acc_type) {
+    case READ:
+      local_status->sum +=
+          bench_read(local_status->t_mem_ptr, local_status->t_mem_size,
+                     &(local_status->nread));
+      break;
+    case WRITE:
+      local_status->sum +=
+          bench_write(local_status->t_mem_ptr, local_status->t_mem_size,
+                      &(local_status->nread));
       break;
     }
-    elogf(LOG_LEVEL_DEBUG, "Worker thread %d starting\n", local_status->id);
-    /*
-     * actual memory access
-     */
-    local_status->t_end = 0;
-    local_status->nread = 0;
-    local_status->t_start = get_usecs();
-    for (i = 0;; i++) {
-      switch (local_status->acc_type) {
-      case READ:
-        local_status->sum +=
-            bench_read(local_status->t_mem_ptr, local_status->t_mem_size,
-                       &(local_status->nread));
-        break;
-      case WRITE:
-        local_status->sum +=
-            bench_write(local_status->t_mem_ptr, local_status->t_mem_size,
-                        &(local_status->nread));
-        break;
-      }
 
-      if (local_status->iterations > 0 && i + 1 >= local_status->iterations)
-        break;
-    }
-    local_status->t_end = get_usecs();
-    elogf(LOG_LEVEL_DEBUG,
-          "Worker thread %d waiting  for other threads to finish\n",
-          local_status->id);
-    // thread_num + main thread rendevous to start computing
-    res = wait_for_sem(&worker_mutex);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %d cannot wait on worker mutex: %s\n",
-            local_status->id, strerror(errno));
-    }
-    num_threads_completed++;
-    elogf(LOG_LEVEL_DEBUG, "thread %d end sync ready %d  completed %d\n",
-          local_status->id, num_threads_ready, num_threads_completed);
-    if (num_threads_completed == thread_num) {
-      num_threads_completed = 0;
-      res = sem_post(&main_end_mutex);
-      if (res < 0) {
-        elogf(LOG_LEVEL_ERR, "Thread %d cannot post on main mutex: %s\n",
-              local_status->id, strerror(errno));
-      }
-    }
-    res = sem_post(&worker_mutex);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %d cannot post on worker mutex: %s\n",
-            local_status->id, strerror(errno));
-    }
-    res = wait_for_sem(&worker_complete_queue);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR,
-            "Thread %d cannot wait on worker complete queue: %s\n",
-            local_status->id, strerror(errno));
-    }
+    if (local_status->iterations > 0 && i + 1 >= local_status->iterations)
+      break;
   }
-  elogf(LOG_LEVEL_DEBUG, "Worker thread %d terminating\n", local_status->id);
+  local_status->t_end = get_usecs();
+  elogf(LOG_LEVEL_DEBUG, "Thread on cpu %d done\n", local_status->cpu_id);
   return NULL;
 }
 
@@ -439,44 +323,6 @@ int benchmark_init(int parameters_num, void **parameters) {
   elogf(LOG_LEVEL_DEBUG,
         "Allocated cpu masks and got maximum number of usable threads\n");
   elogf(LOG_LEVEL_TRACE, "Using %d worker threads\n", thread_num);
-
-  res = sem_init(&worker_mutex, 0, 1);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize worker mutex: %s\n",
-          strerror(errno));
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&main_start_mutex, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize main start mutex: %s\n",
-          strerror(errno));
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&main_end_mutex, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize main end mutex: %s\n",
-          strerror(errno));
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&worker_ready_queue, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize worker ready queue: %s\n",
-          strerror(errno));
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&worker_complete_queue, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize worker complete queue: %s\n",
-          strerror(errno));
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-
-  elogf(LOG_LEVEL_DEBUG, "Initialized pthreads semaphores\n");
   // allocate memory for all the extra metrics
   char *old_header;
   extra_measurement.num_elements = thread_num + 1;
@@ -677,21 +523,20 @@ int benchmark_init(int parameters_num, void **parameters) {
   }
   elogf(LOG_LEVEL_DEBUG, "memory setup done,spawning threads\n");
 
-  // allocate thread id array
-  pthread_id = (pthread_t *)malloc(sizeof(pthread_t) * thread_num);
-  if (pthread_id == NULL) {
-    elogf(LOG_LEVEL_ERR, "Cannot allocate memory for thread stats\n");
-    free(opts);
-    return -EXIT_FAILURE;
-  }
-  memset(pthread_id, 0, sizeof(pthread_t) * thread_num);
-
-  // spawn threads
+  // ask RT-Bench to spawn threads and print experiment info on log file
   pthread_attr_t pthread_attr;
   int thread_index = 0;
+  flogf(LOG_LEVEL_FILE, log_filep,
+        "thread num=%d, global memsize=%d KB, buffer "
+        "type=%s \n",
+        thread_num, g_mem_size / 1024,
+        ((buf_type == SHARED) ? "shared" : "private"));
+
+  flogf(LOG_LEVEL_FILE, log_filep, "\nthread info:\n");
   for (i = 0; i < cpus && thread_index < thread_num; i++) {
     // if we need to spawn a thread on cpu i
     if (CPU_ISSET(i, &cpu_set_mask)) {
+      thread_stat[thread_index].cpu_id = i;
       res = pthread_attr_init(&pthread_attr);
       if (res < 0) {
         elogf(LOG_LEVEL_ERR,
@@ -712,19 +557,11 @@ int benchmark_init(int parameters_num, void **parameters) {
         free(opts);
         return -EXIT_FAILURE;
       }
-      // set the thread ID
-      thread_stat[thread_index].id = thread_index;
-      // set the cpu ID
-      thread_stat[thread_index].cpu_id = i;
-      // enable the thread
-      thread_stat[thread_index].execution_status = THREAD_ENABLED;
       // we spawn the thread
-      res = pthread_create(pthread_id + thread_index, &pthread_attr,
-                           thread_execution,
-                           (void *)(thread_stat + thread_index));
+      res = create_bench_thread(&pthread_attr, thread_execution,
+                                (void *)(thread_stat + thread_index));
       if (res < 0) {
-        elogf(LOG_LEVEL_ERR, "Cannot start thread on cpu %d: %s\n", i,
-              strerror(errno));
+        elogf(LOG_LEVEL_ERR, "Cannot start thread on cpu %d\n",i);
         free(opts);
         return -EXIT_FAILURE;
       }
@@ -737,30 +574,18 @@ int benchmark_init(int parameters_num, void **parameters) {
         free(opts);
         return -EXIT_FAILURE;
       }
+      flogf(LOG_LEVEL_FILE, log_filep, "\tthread %d:\n", thread_index);
+      flogf(LOG_LEVEL_FILE, log_filep, "\t\tusing cpu: %d\n", i);
+      flogf(LOG_LEVEL_FILE, log_filep, "\t\taccess type: %s\n",
+            (thread_stat[thread_index].acc_type == READ) ? "read" : " write");
+      flogf(LOG_LEVEL_FILE, log_filep, "\t\tstop at %d iterations\n",
+            thread_stat[thread_index].iterations);
+      flogf(LOG_LEVEL_FILE, log_filep, "\t\tbuffer memsize: %d KB\n",
+            thread_stat[thread_index].t_mem_size / 1024);
+      flogf(LOG_LEVEL_FILE, log_filep, "\t\tbuffer VA: %p\n",
+            thread_stat[thread_index].t_mem_ptr);
       thread_index++;
     }
-  }
-  /* print experiment info before starting */
-  flogf(LOG_LEVEL_FILE, log_filep,
-        "thread num=%d, global memsize=%d KB, buffer "
-        "type=%s \n",
-        thread_num, g_mem_size / 1024,
-        ((buf_type == SHARED) ? "shared" : "private"));
-
-  flogf(LOG_LEVEL_FILE, log_filep, "\nthread info:\n");
-  for (i = 0; i < thread_num; i++) {
-    flogf(LOG_LEVEL_FILE, log_filep, "\tthread %d:\n", i);
-    flogf(LOG_LEVEL_FILE, log_filep, "\t\tusing cpu: %d\n",
-          thread_stat[i].cpu_id);
-    flogf(LOG_LEVEL_FILE, log_filep, "\t\taccess type: %s\n",
-          (thread_stat[i].acc_type == READ) ? "read" : " write");
-    flogf(LOG_LEVEL_FILE, log_filep, "\t\tstop at %d iterations\n",
-          thread_stat[i].iterations);
-    flogf(LOG_LEVEL_FILE, log_filep, "\t\tbuffer memsize: %d KB\n",
-          thread_stat[i].t_mem_size / 1024);
-    flogf(LOG_LEVEL_FILE, log_filep, "\t\tbuffer VA: %p\n",
-          thread_stat[i].t_mem_ptr);
-    fflush(log_filep);
   }
   free(opts);
   elogf(LOG_LEVEL_DEBUG, "benchmark setup done\n");
@@ -780,36 +605,22 @@ void benchmark_execution(int parameters_num, void **parameters) {
   g_nread = 0;
   g_start = 0;
   g_end = 0;
-  elogf(LOG_LEVEL_DEBUG, "Main waiting for all worker threads to be ready\n");
-  res = wait_for_sem(&main_start_mutex);
+  res = main_thread_sync_start();
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Main thread cannot wait main mutex: %s\n",
+    elogf(LOG_LEVEL_ERR,
+          "Main thread cannot wait for all worker threads to be ready: %s",
           strerror(errno));
+    set_multithread_status(MULTITHREAD_ERR);
+    return;
   }
-  elogf(LOG_LEVEL_DEBUG, "Main thread unlocking all worker threads\n");
-  for (i = 0; i < thread_num; i++) {
-    sem_post(&worker_ready_queue);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR,
-            "Main thread cannot unlock thread %d in worker ready queue: %s\n",
-            i, strerror(errno));
-    }
-  }
-  elogf(LOG_LEVEL_DEBUG,
-        "Main thread waiting for all worker threads to finish work\n");
-  res = wait_for_sem(&main_end_mutex);
+  res = main_thread_sync_end();
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Main thread cannot wait main mutex: %s\n",
+    elogf(LOG_LEVEL_ERR,
+          "Main thread cannot wait for all worker threads to be have finished "
+          "the task: %s",
           strerror(errno));
-  }
-  for (i = 0; i < thread_num; i++) {
-    sem_post(&worker_complete_queue);
-    if (res < 0) {
-      elogf(
-          LOG_LEVEL_ERR,
-          "Main thread cannot unlock thread %d in worker complete queue: %s\n",
-          i, strerror(errno));
-    }
+    set_multithread_status(MULTITHREAD_ERR);
+    return;
   }
   for (i = 0; i < thread_num; i++) {
     elogf(LOG_LEVEL_DEBUG, "summing thread %d BW\n", i);
@@ -866,38 +677,6 @@ void benchmark_log_data(void) {
  * @details It will free `::g_mem_ptr`.
  */
 void benchmark_teardown(int parameters_num, void **parameters) {
-  int i = 0;
-  if (thread_num > 0) {
-    // disable all threads
-    if (thread_stat != NULL) {
-      for (i = 0; i < thread_num; i++) {
-        elogf(LOG_LEVEL_DEBUG, "Disabling thread %d\n", i);
-        thread_stat[i].execution_status = THREAD_DISABLED;
-      }
-    }
-    if (pthread_id != NULL) {
-      elogf(LOG_LEVEL_DEBUG,
-            "Unlocking worker threads to allow them to terminate\n");
-      for (i = 0; i < thread_num; i++) {
-        sem_post(&worker_ready_queue);
-        sem_post(&worker_complete_queue);
-      }
-      // join with all the threads
-      for (i = 0; i < thread_num; i++) {
-        elogf(LOG_LEVEL_DEBUG, "Joining on thread %d\n", i);
-        pthread_join(pthread_id[i], NULL);
-      }
-    }
-  }
-  if (pthread_id != NULL) {
-    // now we can deallocate all resources
-    free(pthread_id);
-  }
-  sem_destroy(&main_start_mutex);
-  sem_destroy(&main_end_mutex);
-  sem_destroy(&worker_mutex);
-  sem_destroy(&worker_ready_queue);
-  sem_destroy(&worker_complete_queue);
   if (extra_measurement.header != NULL) {
     free(extra_measurement.header);
   }
