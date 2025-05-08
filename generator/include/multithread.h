@@ -18,10 +18,11 @@
 
 /// Thread status enum, so we know when thread functionality is enabled or not.
 enum thread_execution_status {
-  MULTITHREAD_ERR=-1,       ///< Error during multithread execution.
-  MULTITHREAD_DISABLED = 0, ///< multithread execution disabled.
-	MULTITHREAD_INITIALIZING, ///< Multithread execution will be enabled when all threads are spawned.
-  MULTITHREAD_ENABLED       ///< Multithread execution enabled.
+  MULTITHREAD_ERR = -1,      ///< Error during multithread execution.
+  MULTITHREAD_DISABLED = 0,  ///< Multithread execution disabled.
+  MULTITHREAD_WAITING_START, ///< Threads are waiting to start the task.
+  MULTITHREAD_ENABLED,       ///< Threads are enabled.
+  MULTITHREAD_WAITING_END    ///< Threads are done with the task.
 };
 
 /// List of benchmark worker threads and their information.
@@ -35,33 +36,29 @@ struct bench_thread_info {
 /// Global status for the multithread benchmarks.
 struct bench_thread {
   struct bench_thread_info *threads; ///< The 1st item of the list of threads
-  unsigned int num_threads; /// < The total number of threads.
+  unsigned int num_threads;          /// < The total number of threads.
 };
 
 /// Global variable that carries information on benchmark threads.
 extern struct bench_thread bench_thread;
 
-/** @brief Initialize resources for multithreaded benchmarks.
- * @returns `0` on success, `-1` on error.
- */
-int main_multithread_init(void);
-
-/** @brief RT-Bench waits until all benchmark worker threads can start executing the
- * task.
+/** @brief RT-Bench waits until all benchmark worker threads can start executing
+ * the task.
  * @returns `0` on success, `-1` on error.
  */
 int main_thread_sync_start(void);
 
-/** @brief RT-Bench waits until all benchmark worker threads can are done executing the
- * task.
+/** @brief RT-Bench waits until all benchmark worker threads can are done
+ * executing the task.
  * @returns `0` on success, `-1` on error.
-*/
+ */
 int main_thread_sync_end(void);
 
 /** @brief Create an track a worker thread
  * @param[in] attr The thread attribute, passed directly to `phtread_create`.
  * @param[in] func The function that the worker thread needs to execute.
- * @param[in] arg The argument for the thread function, passed directly to `phtread_create`.
+ * @param[in] arg The argument for the thread function, passed directly to
+ * `phtread_create`.
  * @returns `0` on success, `-1` on error.
  */
 int create_bench_thread(pthread_attr_t *_attr, void *(*func)(void *),
@@ -80,6 +77,5 @@ enum thread_execution_status get_multithread_status(void);
  * @returns `0` on success `-1` on error.
  */
 int set_multithread_status(enum thread_execution_status status);
-
 
 #endif

@@ -617,7 +617,7 @@ void benchmark_execution(int parameters_num, void **parameters) {
   if (res < 0) {
     elogf(LOG_LEVEL_ERR,
           "Main thread cannot wait for all worker threads to be have finished "
-          "the task: %s",
+          "the task: %s\n",
           strerror(errno));
     set_multithread_status(MULTITHREAD_ERR);
     return;

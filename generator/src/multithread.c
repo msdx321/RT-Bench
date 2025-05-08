@@ -21,32 +21,38 @@ struct bench_thread bench_thread = {0};
 static struct bench_thread_info *last_thread = NULL;
 
 static pthread_mutex_t
-    bench_mutex = PTHREAD_MUTEX_INITIALIZER, ///< A mutex to have all worker
-                                             ///< threads update a
-                                             ///< `::num_threads_ready`,
-                                             ///< `::num_thread_cmpleted`.
+    thread_ready_mutex = PTHREAD_MUTEX_INITIALIZER, ///< A mutex to have all
+                                                    ///< worker threads update a
+                                                    ///< `::num_threads_ready`,
+    thread_completed_mutex =
+        PTHREAD_MUTEX_INITIALIZER, ///< A mutex to have all worker
+                                   ///< threads update a
+                                   ///< `::num_thread_completed`.
     multithread_status_mutex =
         PTHREAD_MUTEX_INITIALIZER; ///<  A mutex to read/write
                                    ///< `::multithread_status` without race
                                    ///< conditions.
-static sem_t bench_ready_queue, ///< The queue of worker threads that will need
-                                ///< to be unlocked by the main thread.
-    bench_complete_queue, ///< The queue of worker threads that will need to be
-                          ///< unlocked by the main thread.
-    main_start_sem, ///< The mutex used by the main thread to wait for all the
-                    ///< benchmark worker threads to be ready to start.
-    main_end_sem;   ///< The mutex used by the main thread to wait for all the
-                    ///< worker threads to have finished the loop.
-static int
-    num_threads_ready =
-        0, ///< The number of threads ready to start a new computation loop.
+static int num_threads_ready =
+               0, ///< The number of threads ready to start a new computation
+                  ///< loop, protected by `::threads_ready_mutex`.
     num_threads_completed =
-        0; ///< The number of threads that have completed a computation loop.
+        0; ///< The number of threads that have completed a computation loop,
+           ///< protected by `::threads_completed_mutex`.
 
-static pthread_cond_t all_threads_initialized =
-    PTHREAD_COND_INITIALIZER; ///< If RT-Bench has finished initializing all
-                              ///< threads, this variable shares a mutex with
-                              ///< `::multithread_status`.
+static pthread_cond_t
+    multithread_status_change =
+        PTHREAD_COND_INITIALIZER, ///<  If
+                                  ///< `::multithread_status` has changed,
+                                  ///< protected by
+                                  ///< `::multithread_status_mutex`.
+    threads_ready =
+        PTHREAD_COND_INITIALIZER, /// < RT-Bench nedd to wait until all threads
+                                  /// are ready to start the task, uses
+                                  /// `::bench_mutex`.
+    threads_completed =
+        PTHREAD_COND_INITIALIZER; /// < RT-Bench nedd to wait until all threads
+                                  /// are done with the current task, uses
+                                  /// `::bench_mutex`.
 static enum thread_execution_status multithread_status =
     MULTITHREAD_DISABLED; ///< If multithreaded execution status.
 
@@ -59,7 +65,7 @@ inline enum thread_execution_status get_multithread_status(void) {
     elogf(LOG_LEVEL_ERR, "Cannot lock multithread status mutex: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
-    pthread_cond_broadcast(&all_threads_initialized);
+    pthread_cond_broadcast(&multithread_status_change);
     pthread_mutex_unlock(&multithread_status_mutex);
     return MULTITHREAD_ERR;
   }
@@ -69,39 +75,38 @@ inline enum thread_execution_status get_multithread_status(void) {
     elogf(LOG_LEVEL_ERR, "Cannot unlock multithread status mutex: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
-    pthread_cond_broadcast(&all_threads_initialized);
+    pthread_cond_broadcast(&multithread_status_change);
     return MULTITHREAD_ERR;
   }
   return status;
 }
 
 ///@details This function will also broadcast all threads of the change.
-int set_multithread_status(enum thread_execution_status status) {
+inline int set_multithread_status(enum thread_execution_status status) {
   int res = 0;
   res = pthread_mutex_lock(&multithread_status_mutex);
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot lock multithread status mutex: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
-    pthread_cond_broadcast(&all_threads_initialized);
-    pthread_mutex_unlock(&multithread_status_mutex);
+    pthread_cond_broadcast(&multithread_status_change);
     return res;
   }
   elogf(LOG_LEVEL_DEBUG, "got multithread status mutex\n");
   if (multithread_status == MULTITHREAD_ERR) {
     elogf(LOG_LEVEL_DEBUG, "multithread status is in error state!\n");
-    pthread_cond_broadcast(&all_threads_initialized);
+    pthread_cond_broadcast(&multithread_status_change);
     pthread_mutex_unlock(&multithread_status_mutex);
     return -1;
   }
   elogf(LOG_LEVEL_DEBUG, "multithread status is %d\n", multithread_status);
   multithread_status = status;
-  res = pthread_cond_broadcast(&all_threads_initialized);
+  res = pthread_cond_broadcast(&multithread_status_change);
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot broadcast multithread status change: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
-    pthread_cond_broadcast(&all_threads_initialized);
+    pthread_cond_broadcast(&multithread_status_change);
   }
   elogf(LOG_LEVEL_DEBUG, "changed multithread status to %d\n",
         multithread_status);
@@ -110,17 +115,20 @@ int set_multithread_status(enum thread_execution_status status) {
     elogf(LOG_LEVEL_ERR, "Cannot unlock multithread status mutex: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
-    pthread_cond_broadcast(&all_threads_initialized);
+    pthread_cond_broadcast(&multithread_status_change);
   }
   elogf(LOG_LEVEL_DEBUG, "released multithread status mutex\n");
   return res;
 }
 
-/** @brief Wait until all threads are initialized.
+/** @brief Wait until the multithread status reaches the desired state
+ * @param desired_status The status of `::multhread_staus` we need to wait for.
+ * @details Function will exit with an error if `::multithread_status` is either
+ * `MULTIHREAD_DISABLED` or less.
  * @returns `0` on success `-1` on failure.
  */
-static inline int wait_for_thread_init(void) {
-  int ret = 0;
+static inline int wait_for_main(enum thread_execution_status desired_status) {
+  int ret = 0, res = 0;
   ret = pthread_mutex_lock(&multithread_status_mutex);
   if (ret < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot lock multithread status mutex: %s",
@@ -129,105 +137,112 @@ static inline int wait_for_thread_init(void) {
     pthread_mutex_unlock(&multithread_status_mutex);
     return ret;
   }
-  while (multithread_status != MULTITHREAD_ENABLED) {
-    if (multithread_status <= MULTITHREAD_DISABLED) {
-      pthread_mutex_unlock(&multithread_status_mutex);
-      return -1;
-    }
-    pthread_cond_wait(&all_threads_initialized, &multithread_status_mutex);
+  while (multithread_status != desired_status &&
+         multithread_status > MULTITHREAD_DISABLED) {
+    pthread_cond_wait(&multithread_status_change, &multithread_status_mutex);
   }
+  res = multithread_status == MULTITHREAD_ERR;
   ret = pthread_mutex_unlock(&multithread_status_mutex);
   if (ret < 0) {
+    res = ret;
     elogf(LOG_LEVEL_ERR, "Cannot lock multithread status mutex: %s",
           strerror(errno));
     multithread_status = MULTITHREAD_ERR;
   }
-  return ret;
+  return res;
 }
 
-/** @brief Wait for a semaphore, looping if the wait gets interrupted by a
- * signal.
- * @param[in] sem The saemaphore to use in `sem_wait`.
- * @returns the value returned by the `sem_wait` function.
+/** @brief Increment `::num_threads_ready`.
+ * @details Signal main thread only when all threads are ready.
+ * @returns `0` on success, `-1` on error
  */
-static inline int wait_for_sem(sem_t *sem) {
+static inline int add_thread_ready(void) {
   int res = 0;
-  do {
-    res = sem_wait(sem);
-  } while (errno == EINTR);
+  res = pthread_mutex_lock(&thread_ready_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot lock thread_ready_mutex: %s\n",
+          strerror(errno));
+  }
+  num_threads_ready++;
+  if (num_threads_ready >= bench_thread.num_threads) {
+    elogf(LOG_LEVEL_DEBUG, "ready thread signals main\n");
+    res = pthread_cond_signal(&threads_ready);
+    if (res < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot signal that all threads are ready: %s\n",
+            strerror(errno));
+    }
+  }
+  res = pthread_mutex_unlock(&thread_ready_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot unlock thread_ready_mutex: %s\n",
+          strerror(errno));
+  }
+  return res;
+}
+
+/** @brief Increment `::num_threads_completed`.
+ * @details Signal main thread only when all threads are ready.
+ * @returns `0` on success, `-1` on error
+ */
+static inline int add_thread_completed(void) {
+  int res = 0;
+  res = pthread_mutex_lock(&thread_completed_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot lock thread_completed_mutex: %s\n",
+          strerror(errno));
+  }
+  num_threads_completed++;
+  if (num_threads_completed >= bench_thread.num_threads) {
+    elogf(LOG_LEVEL_DEBUG, "completed thread signals main\n");
+    res = pthread_cond_signal(&threads_completed);
+    if (res < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot signal that all threads are completed: %s\n",
+            strerror(errno));
+    }
+  }
+  res = pthread_mutex_unlock(&thread_completed_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "Cannot unlock thread_completed_mutex: %s\n",
+          strerror(errno));
+  }
   return res;
 }
 
 /// Make benchmark worker thread wait to be released by RT-Bench to start the
 /// task.
-void bench_thread_sync_start(struct bench_thread_info *info) {
+static inline void bench_thread_sync_start(struct bench_thread_info *info) {
   int res;
-  // thread_num + main thread rendevous to start computing
-  res = pthread_mutex_lock(&bench_mutex);
+  res = add_thread_ready();
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR,
-          "Benchmark worker thread %lu cannot wait on bench mutex: %s\n",
-          info->thread_id, strerror(errno));
+    return;
   }
-  num_threads_ready++;
-  elogf(LOG_LEVEL_DEBUG, "thread %lu start sync ready %d complete %d\n",
-        info->thread_id, num_threads_ready, num_threads_completed);
-  if (num_threads_ready == bench_thread.num_threads) {
-    num_threads_ready = 0;
-    res = sem_post(&main_start_sem);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %lu cannot post on main mutex: %s\n",
-            info->thread_id, strerror(errno));
-    }
-  }
-  res = pthread_mutex_unlock(&bench_mutex);
+  res = wait_for_main(MULTITHREAD_ENABLED);
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Thread %lu cannot post on bench mutex: %s\n",
-          info->thread_id, strerror(errno));
-  }
-  res = wait_for_sem(&bench_ready_queue);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Thread %lu cannot wait on bench ready queue: %s\n",
+    elogf(LOG_LEVEL_ERR, "Thread %lu cannot wait for main on start sync: %s\n",
           info->thread_id, strerror(errno));
   }
   /// If the benchmark worker thread gets unlocked and the multithread status is
-  /// not enalbed it has to exit.
+  /// not enabled it has to exit.
   if (get_multithread_status() != MULTITHREAD_ENABLED) {
+    // before exiting signal this thread had completed, so the main thread does
+    // not wait for us.
+    add_thread_completed();
     pthread_exit(NULL);
   }
   elogf(LOG_LEVEL_DEBUG, "Bench thread %lu starting\n", info->thread_id);
 }
 
 /// Make benchmark worker thread wait other worker threads to finish the task.
-void bench_thread_sync_end(struct bench_thread_info *info) {
+static inline void bench_thread_sync_end(struct bench_thread_info *info) {
   // thread_num + main thread rendevous to start computing
   int res;
-  res = pthread_mutex_lock(&bench_mutex);
+  res = add_thread_completed();
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Thread %lu cannot wait on worker mutex: %s\n",
-          info->thread_id, strerror(errno));
+    return;
   }
-  num_threads_completed++;
-  elogf(LOG_LEVEL_DEBUG, "thread %lu end sync ready %d  completed %d\n",
-        info->thread_id, num_threads_ready, num_threads_completed);
-  if (num_threads_completed == bench_thread.num_threads) {
-    num_threads_completed = 0;
-	elogf(LOG_LEVEL_DEBUG,"Thread %lu unlocking RT-Bench\n",info->thread_id);
-    res = sem_post(&main_end_sem);
-    if (res < 0) {
-      elogf(LOG_LEVEL_ERR, "Thread %lu cannot post on main mutex: %s\n",
-            info->thread_id, strerror(errno));
-    }
-  }
-  res = pthread_mutex_unlock(&bench_mutex);
+  res = wait_for_main(MULTITHREAD_WAITING_END);
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Thread %lu cannot post on worker mutex: %s\n",
-          info->thread_id, strerror(errno));
-  }
-  res = wait_for_sem(&bench_complete_queue);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR,
-          "Thread %lu cannot wait on worker complete queue: %s\n",
+    elogf(LOG_LEVEL_ERR, "Thread %lu cannot wait for main to be ready: %s\n",
           info->thread_id, strerror(errno));
   }
   elogf(LOG_LEVEL_DEBUG, "Worker thread %lu waiting for next task\n",
@@ -248,34 +263,34 @@ void bench_thread_sync_end(struct bench_thread_info *info) {
  * value returned from the benchmark-specific thread functions.
  */
 void *bench_worker_thread_func(void *arg) {
-  int ret;
   if (arg == NULL) {
     elogf(LOG_LEVEL_ERR, "Worker thread has no argument\n");
     exit(-EXIT_FAILURE);
   }
   struct bench_thread_info *info = (struct bench_thread_info *)arg;
   void *res = NULL;
-  ret = wait_for_thread_init();
-  if (ret < 0) {
-    return NULL;
-  }
   // wait for all threads to be initialized
-  while (get_multithread_status() == MULTITHREAD_ENABLED) {
+  while (get_multithread_status() >= MULTITHREAD_WAITING_START) {
     bench_thread_sync_start(info);
     res = info->thread_func(info->thread_arg);
     bench_thread_sync_end(info);
   }
+	// we are exiting so we don't want to keep main thread waiting for us in any of the sycnrhonization points
+  add_thread_ready();
+  add_thread_completed();
+  elogf(LOG_LEVEL_DEBUG, "thread %lu terminating\n", info->thread_id);
   return res;
 }
 
 /** @details Updates `::bench_thread` and call `pthread_create`.
  * Additionally it also wrap `func` so the benchmark does not
- * have to handle the synchronization between worker threads and RT-Bench main thread.
+ * have to handle the synchronization between worker threads and RT-Bench main
+ * thread.
  */
 int create_bench_thread(pthread_attr_t *attr, void *(*func)(void *),
                         void *arg) {
   int res = 0;
-  res = set_multithread_status(MULTITHREAD_INITIALIZING);
+  res = set_multithread_status(MULTITHREAD_WAITING_START);
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Cannot set multithread status to initializing\n");
     set_multithread_status(MULTITHREAD_ERR);
@@ -313,80 +328,86 @@ int create_bench_thread(pthread_attr_t *attr, void *(*func)(void *),
   return res;
 }
 
-int main_multithread_init(void) {
-  int res;
-  res = sem_init(&main_start_sem, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize main start mutex: %s\n",
-          strerror(errno));
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&main_end_sem, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize main end mutex: %s\n",
-          strerror(errno));
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&bench_ready_queue, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize worker ready queue: %s\n",
-          strerror(errno));
-    return -EXIT_FAILURE;
-  }
-  res = sem_init(&bench_complete_queue, 0, 0);
-  if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Cannot initialize worker complete queue: %s\n",
-          strerror(errno));
-    return -EXIT_FAILURE;
-  }
-  return set_multithread_status(MULTITHREAD_ENABLED);
-}
-
 int main_thread_sync_start(void) {
-  int res = 0, i;
+  int res = 0;
   elogf(LOG_LEVEL_DEBUG,
-        "RT-Bench waiting for all worker threads to be ready\n");
-  res = wait_for_sem(&main_start_sem);
+        "main thread waiting for all worker threads to be ready\n");
+  res = pthread_mutex_lock(&thread_ready_mutex);
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "RT-Bench cannot wait main mutex: %s\n",
+    elogf(LOG_LEVEL_ERR, "main thread cannot lock  thread_ready_mutex: %s\n",
           strerror(errno));
     set_multithread_status(MULTITHREAD_ERR);
     return res;
   }
-  elogf(LOG_LEVEL_DEBUG, "RT-Bench unlocking all worker threads\n");
-  for (i = 0; i < bench_thread.num_threads; i++) {
-    sem_post(&bench_ready_queue);
-    if (res < 0) {
+  while (num_threads_ready < bench_thread.num_threads) {
+    res = pthread_cond_wait(&threads_ready, &thread_ready_mutex);
+    if ((res < 0 && errno != EINTR) ||
+        get_multithread_status() == MULTITHREAD_ERR) {
       elogf(LOG_LEVEL_ERR,
-            "Main thread cannot unlock thread %d in worker ready queue: %s\n",
-            i, strerror(errno));
+            "main thread cannot wait for threads to be ready: %s\n",
+            strerror(errno));
       set_multithread_status(MULTITHREAD_ERR);
       return res;
     }
+  }
+  num_threads_ready = 0;
+  pthread_mutex_unlock(&thread_ready_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "main thread cannot unlock  thread_ready_mutex: %s\n",
+          strerror(errno));
+    set_multithread_status(MULTITHREAD_ERR);
+    return res;
+  }
+  elogf(LOG_LEVEL_DEBUG, "main thread unlocking all worker threads\n");
+  res = set_multithread_status(MULTITHREAD_ENABLED);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "main thread cannot unlock all threads: %s\n",
+          strerror(errno));
+    set_multithread_status(MULTITHREAD_ERR);
+    return res;
   }
   return res;
 }
 
 int main_thread_sync_end(void) {
-  int i, res = 0;
+  int res = 0;
   elogf(LOG_LEVEL_DEBUG,
-        "RT-Bench waiting for all worker threads to finish work\n");
-  res = wait_for_sem(&main_end_sem);
+        "main thread waiting for all worker threads to be completed\n");
+  res = pthread_mutex_lock(&thread_completed_mutex);
   if (res < 0) {
-    elogf(LOG_LEVEL_ERR, "Main thread cannot wait main mutex: %s\n",
+    elogf(LOG_LEVEL_ERR,
+          "main thread cannot lock  thread_completed_mutex: %s\n",
           strerror(errno));
     set_multithread_status(MULTITHREAD_ERR);
     return res;
   }
-  for (i = 0; i < bench_thread.num_threads; i++) {
-    sem_post(&bench_complete_queue);
-    if (res < 0) {
+  while (num_threads_completed < bench_thread.num_threads) {
+    res = pthread_cond_wait(&threads_completed, &thread_completed_mutex);
+    if ((res < 0 && errno != EINTR) ||
+        get_multithread_status() == MULTITHREAD_ERR) {
       elogf(LOG_LEVEL_ERR,
-            "RT-Bench cannot unlock thread %d in worker complete queue: %s\n",
-            i, strerror(errno));
+            "main thread cannot wait for threads to be completed: %s\n",
+            strerror(errno));
       set_multithread_status(MULTITHREAD_ERR);
       return res;
     }
+  }
+  num_threads_completed = 0;
+  pthread_mutex_unlock(&thread_completed_mutex);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR,
+          "main thread cannot unlock  thread_completed_mutex: %s\n",
+          strerror(errno));
+    set_multithread_status(MULTITHREAD_ERR);
+    return res;
+  }
+  elogf(LOG_LEVEL_DEBUG, "main thread unlocking all worker threads \n");
+  res = set_multithread_status(MULTITHREAD_WAITING_END);
+  if (res < 0) {
+    elogf(LOG_LEVEL_ERR, "main thread cannot unlock all threads: %s\n",
+          strerror(errno));
+    set_multithread_status(MULTITHREAD_ERR);
+    return res;
   }
   return res;
 }
@@ -394,16 +415,9 @@ int main_thread_sync_end(void) {
 void destroy_bench_threads(void) {
   int i = 0;
   struct bench_thread_info *current = NULL, *next = NULL;
-  set_multithread_status(MULTITHREAD_DISABLED);
   if (bench_thread.num_threads > 0) {
-    // unlock all threads
+    set_multithread_status(MULTITHREAD_DISABLED);
     if (bench_thread.threads != NULL) {
-      elogf(LOG_LEVEL_DEBUG,
-            "Unlocking worker threads to allow them to terminate\n");
-      for (i = 0; i < bench_thread.num_threads; i++) {
-        sem_post(&bench_ready_queue);
-        sem_post(&bench_complete_queue);
-      }
       // join with all the threads
       current = bench_thread.threads;
       while (current == NULL) {
@@ -415,11 +429,10 @@ void destroy_bench_threads(void) {
       }
     }
   }
-  sem_destroy(&main_start_sem);
-  sem_destroy(&main_end_sem);
-  pthread_mutex_destroy(&bench_mutex);
+  pthread_mutex_destroy(&thread_ready_mutex);
+  pthread_mutex_destroy(&thread_completed_mutex);
   pthread_mutex_destroy(&multithread_status_mutex);
-  pthread_cond_destroy(&all_threads_initialized);
-  sem_destroy(&bench_ready_queue);
-  sem_destroy(&bench_complete_queue);
+  pthread_cond_destroy(&multithread_status_change);
+  pthread_cond_destroy(&threads_ready);
+  pthread_cond_destroy(&threads_completed);
 }
