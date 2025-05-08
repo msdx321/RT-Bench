@@ -213,6 +213,10 @@ int benchmark_init(int parameters_num, void **parameters) {
       usage(opt_num, opts);
       return 0;
       break;
+    default:
+			free(opts);
+      return -1;
+			break;
     }
   }
   free(opts);

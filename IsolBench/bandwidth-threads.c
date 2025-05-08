@@ -292,6 +292,10 @@ int benchmark_init(int parameters_num, void **parameters) {
       free(opts);
       return 0;
       break;
+    default:
+			free(opts);
+      return -1;
+			break;
     }
   }
   elogf(LOG_LEVEL_DEBUG, "Parsed arguments\n");

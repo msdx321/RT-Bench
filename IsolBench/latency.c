@@ -158,6 +158,10 @@ int benchmark_init(int parameters_num, void **parameters) {
     case 'h':
       usage(opt_num, opts);
       break;
+    default:
+			free(opts);
+      return -1;
+			break;
     }
   }
   flogf(LOG_LEVEL_FILE, log_filep, "repeat=%d\n", repeat);
