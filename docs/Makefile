@@ -30,6 +30,8 @@ html: setup
 	@cp -r source/attachments html/$(BRANCH_FOLDER)/attachments
 	@cd conf && sed -e 's/GENERATE_HTML\s*=\s*NO/GENERATE_HTML=YES/' -e 's|HTML_OUTPUT\s*=.*|HTML_OUTPUT=html\/$(BRANCH_FOLDER)|' -e 's|PROJECT_NUMBER\s*=.*|PROJECT_NUMBER=$(CURRENT_BRANCH)|' Doxyfile | doxygen -
 	@cd html && touch .nojekyll
+	@sed -i -e '/^.dropdown-content {/a z-index: 9999;' html/$(BRANCH_FOLDER)/dropdown.css
+	@sed -i -e 's/\(z-index:\)9999/\19998/' html/$(BRANCH_FOLDER)/tabs.css
 ifeq ("$(wildcard Documentation.html)","")
 	@ln -s html/$(BRANCH_FOLDER)/index.html Documentation.html
 endif
