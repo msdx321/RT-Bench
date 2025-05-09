@@ -10,10 +10,10 @@ make_docs() {
 	echo "Building documentation for $branch"
 	folder_name=$(echo "$branch" | sed 's/\//-/g' | sed 's/+/plus/g')
 	# branches with docs already built are skipped
-	if [ -d "$DOCS_FOLDER/$folder_name" ]; then
-		echo "Documentation for $branch already exists, skipping..."
-		return
-	fi
+	#if [ -d "$DOCS_FOLDER/$folder_name" ]; then
+	#	echo "Documentation for $branch already exists, skipping..."
+	#return
+	#fi
 	# we need a fresh copy of the repository to avoid conflicts while checking out branches
 	git clone -b "$branch" --depth 1 --shallow-submodules https://gitlab.com/rt-bench/rt-bench.git "$DOCS_FOLDER"/../rt-bench-tmp || exit 255
 	cd "$DOCS_FOLDER"/../rt-bench-tmp || exit 255
@@ -27,6 +27,9 @@ make_docs() {
 	# remove the warnings
 	sed -i -e "s|WARNINGS\s*=.*|WARNINGS=NO|" -e "s|WARN_AS_ERROR\s=|WARN_AS_ERROR=NO|" conf/Doxyfile || exit 255
 	CURRENT_BRANCH="$branch" make html
+	# apply fixes for dropdown button
+	sed -i -e '/^.dropdown-content {/a z-index: 9999;' -e '/^.dropdown-content {/a overflow: auto;' -e '/^.dropdown-content {/a max-height: 500px;' html/"$folder_name"/dropdown.css
+	sed -i -e 's/\(z-index:\)9999/\19998/' html/"$folder_name"/tabs.css
 	if [ -d html/"$folder_name" ]; then
 		mv html/"$folder_name" "$DOCS_FOLDER" || exit 255
 	else
@@ -45,6 +48,11 @@ git for-each-ref --format='%(refname:short)' refs/tags refs/remotes/origin | whi
 	branch=$(echo "$branch" | sed 's/origin\///')
 	# skip the HEAD reference
 	if [ "$branch" == "HEAD" ]; then
+		continue
+	fi
+	# keep only master, dev/unstable and releases
+	# this means: skip all wip, feat and ease-cross-compiling branches
+	if [[ "$branch" =~ ^wip/.*$ || "$branch" =~ ^feat/.*$  || "$branch" == ease-cross-compiling-v2 ]]; then
 		continue
 	fi
 	make_docs
