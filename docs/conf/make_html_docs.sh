@@ -28,13 +28,13 @@ make_docs() {
 	sed -i -e "s|WARNINGS\s*=.*|WARNINGS=NO|" -e "s|WARN_AS_ERROR\s=|WARN_AS_ERROR=NO|" conf/Doxyfile || exit 255
 	CURRENT_BRANCH="$branch" make html
 	# apply fixes for dropdown button
-	if [[ ! grep -q "z-index" html/"$folder_name"/dropdown.css ]]; then
+	if [[ ! $(grep -q "z-index" html/"$folder_name"/dropdown.css) ]]; then
 		sed -i -e '/^.dropdown-content {/a z-index: 2147483648 !important;' html/"$folder_name"/dropdown.css
 	fi
-	if [[ ! grep -q "overflow" html/"$folder_name"/dropdown.css ]]; then
+	if [[ ! $(grep -q "overflow" html/"$folder_name"/dropdown.css) ]]; then
 		sed -i -e '/^.dropdown-content {/a overflow: auto;' html/"$folder_name"/dropdown.css
 	fi
-	if [[ ! grep -q "max-height" html/"$folder_name"/dropdown.css ]]; then
+	if [[ ! $(grep -q "max-height" html/"$folder_name"/dropdown.css) ]]; then
 		sed -i -e '/^.dropdown-content {/a max-height: 500px;' html/"$folder_name"/dropdown.css
 	fi
 	if [ -d html/"$folder_name" ]; then
