@@ -130,14 +130,15 @@ static struct perf_counters job_perf_counters_end;
  */
 static void stop_benchmark(int status, void *arg) {
   int res;
-  if (get_multithread_status() != MULTITHREAD_DISABLED) {
-    elogf(LOG_LEVEL_TRACE, "Stopping benchmark threads\n");
-    destroy_bench_threads();
-  }
+  struct execution_options *exec_opts = (struct execution_options *)arg;
+  destroy_bench_threads();
   elogf(LOG_LEVEL_TRACE, "Cleaning up job environment\n");
   benchmark_teardown(benchmark_param_num, benchmark_params);
   // we stop the memory watcher
   stop_memory_watcher();
+  if (exec_opts->output_path != NULL) {
+    free(exec_opts->output_path);
+  }
   elogf(LOG_LEVEL_TRACE, "Cleaning parameter list\n");
   // Clean/free buffers
   for (size_t i = 0; i < benchmark_param_num; i++)
@@ -419,11 +420,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   }
 #endif
   elogf(LOG_LEVEL_TRACE, "Starting setup of execution environment\n");
-#if defined FEAT_PERF_SUPPORT && FEAT_PERF_SUPPORT == OPT_FEAT_ENABLED
-  res = on_exit(stop_benchmark, (void *)&(exec_opts->memory_profiling_enable));
-#else
-  res = on_exit(stop_benchmark, NULL);
-#endif
+  res = on_exit(stop_benchmark, (void *)exec_opts);
   if (res != 0) {
     elogf(LOG_LEVEL_ERR, "Error during on_exit function registration");
     return -1;
@@ -462,6 +459,7 @@ int periodic_benchmark(struct execution_options *exec_opts) {
       return res;
     }
   }
+  multithread_init();
   elogf(LOG_LEVEL_TRACE, "Initializing job environment\n");
   if (exec_opts->heap_size > 0) {
     elogf(LOG_LEVEL_TRACE, "Starting memory watcher\n");
@@ -473,6 +471,19 @@ int periodic_benchmark(struct execution_options *exec_opts) {
   if (res < 0) {
     elogf(LOG_LEVEL_ERR, "Error during job environment initialization\n");
     return res;
+  }
+  // if the benchmark spawned threads, we need to set the multithread status
+  // to waiting_start, so threads will start to signal main that they are
+  // ready
+  if (get_multithread_status() == MULTITHREAD_INITIALIZING) {
+    elogf(LOG_LEVEL_DEBUG,
+          "Signaling end of initialization for  worker threads\n");
+    res = set_multithread_status(MULTITHREAD_WAITING_START);
+    if (res < 0) {
+      elogf(LOG_LEVEL_ERR, "Cannot set multithread status to waiting_start\n");
+      set_multithread_status(MULTITHREAD_ERR);
+      return res;
+    }
   }
   // set the extra measurements to be invalid
   extra_measurement.status = EXTRA_MEASUREMENT_INVALID;
@@ -502,10 +513,6 @@ int periodic_benchmark(struct execution_options *exec_opts) {
       fprintf(filep, ",%s", extra_measurement.header);
     }
     fprintf(filep, "\n");
-    ///@bug: this free might interfere with the memory watcher being enabled, check.
-    if (exec_opts->output_path != NULL) {
-      free(exec_opts->output_path);
-    }
     elogf(LOG_LEVEL_TRACE, "Output file setup complete\n");
   }
   elogf(LOG_LEVEL_TRACE, "Job environment initialized\n");

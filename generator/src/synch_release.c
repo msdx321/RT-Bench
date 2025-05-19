@@ -285,7 +285,7 @@ int init_synchronised_benchmark_group(const char *group_name) {
 /** @details
  * Check if a benchmark is "late" (i.e. when the group is already unblocked and
  * the current benchmark did wait on the synchonisation semaphore yet). Then
- * unlblock `::SIGNAL_SYNCH_RELEASE` and wait on the synchornisation semaphore.
+ * unblock `::SIGNAL_SYNCH_RELEASE` and wait on the synchornisation semaphore.
  * After begin unlocked, ignore additional `::SIGNAL_SYNCH_RELEASE`. If
  * synchornisation features are not enabled, do nothing and return.
  */
