@@ -20,27 +20,16 @@
 enum thread_execution_status {
   MULTITHREAD_ERR = -1,      ///< Error during multithread execution.
   MULTITHREAD_DISABLED = 0,  ///< Multithread execution disabled.
+  MULTITHREAD_INITIALIZING, ///< Threads are being spawned.
   MULTITHREAD_WAITING_START, ///< Threads are waiting to start the task.
   MULTITHREAD_ENABLED,       ///< Threads are enabled.
   MULTITHREAD_WAITING_END    ///< Threads are done with the task.
 };
 
-/// List of benchmark worker threads and their information.
-struct bench_thread_info {
-  pthread_t thread_id;            ///< The thread id.
-  void *(*thread_func)(void *);   ///< The thread function.
-  void *thread_arg;               ///< The argument for the thread function.
-  struct bench_thread_info *next; ///< The next element.
-};
-
-/// Global status for the multithread benchmarks.
-struct bench_thread {
-  struct bench_thread_info *threads; ///< The 1st item of the list of threads
-  unsigned int num_threads;          /// < The total number of threads.
-};
-
-/// Global variable that carries information on benchmark threads.
-extern struct bench_thread bench_thread;
+/** @brief initialize global resources for multhreaded execution.
+ * @returns `0` on success, `-1` otherwise.
+ */
+int multithread_init();
 
 /** @brief RT-Bench waits until all benchmark worker threads can start executing
  * the task.
