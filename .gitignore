@@ -15,5 +15,9 @@ docs/conf/doxygen-awesome
 utils/overhead
 utils/get_fifo_max_prio
 *.csv
+*.pdf
+*.png
+*.svg
 *.log
 generator/src/dlmalloc/
+__pycache__

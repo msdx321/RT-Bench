@@ -95,13 +95,8 @@ extern FILE *log_filep;
         exit(-EXIT_FAILURE);                                                   \
       }                                                                        \
     }                                                                          \
-    if (file != NULL) {                                                        \
-      if (mesg_log_level <= benchmark_verbosity) {                             \
-        fprintf(file, format, ##__VA_ARGS__);                                  \
-      }                                                                        \
-    } else {                                                                   \
-      fprintf(stderr, "Cannot print on output file\n");                        \
-      exit(-EXIT_FAILURE);                                                     \
+    if (mesg_log_level <= benchmark_verbosity) {                               \
+      fprintf(file, format, ##__VA_ARGS__);                                    \
     }                                                                          \
   } while (0);
 #else
